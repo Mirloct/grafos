@@ -1,0 +1,1477 @@
+<title>Modelamiento de Grafos aplicado a la detección de fraude — Documentación</title>
+
+<style>
+/* ─────────────────────────────────────────────────────────────────────────
+   Tokens. Un solo sistema: los componentes SIEMPRE leen variables, nunca
+   colores literales, para que los tres orígenes de tema (media query,
+   data-theme=dark, data-theme=light) se resuelvan en un único sitio.
+   ───────────────────────────────────────────────────────────────────────── */
+:root {
+  --ground:      #E9ECF1;
+  --surface:     #FFFFFF;
+  --surface-alt: #F2F4F7;
+  --ink:         #0F1922;
+  --ink-soft:    #33414F;
+  --muted:       #5C6975;
+  --rule:        #C9D2DB;
+  --rule-soft:   #DDE3E9;
+  --accent:      #0F4C6B;
+  --accent-soft: #E2ECF2;
+  --illicit:     #A81F38;
+  --illicit-bg:  #F7E5E8;
+  --licit:       #16697A;
+  --licit-bg:    #E1EFF1;
+  --warn:        #8A5B10;
+  --warn-bg:     #F8EEDC;
+  --shadow:      0 1px 2px rgba(15,25,34,.06), 0 8px 24px -16px rgba(15,25,34,.35);
+
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, "Times New Roman", serif;
+  --sans:  "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --mono:  ui-monospace, "Cascadia Mono", "Cascadia Code", Consolas, "SF Mono", Menlo, monospace;
+
+  --measure: 68ch;
+  --rail: 15.5rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ground:      #0C131B;
+    --surface:     #131C26;
+    --surface-alt: #18232F;
+    --ink:         #DCE4EC;
+    --ink-soft:    #BAC6D2;
+    --muted:       #8B98A6;
+    --rule:        #24303D;
+    --rule-soft:   #1C2733;
+    --accent:      #74B4D6;
+    --accent-soft: #14293A;
+    --illicit:     #E9788C;
+    --illicit-bg:  #2E1820;
+    --licit:       #63C0CE;
+    --licit-bg:    #12262B;
+    --warn:        #D9AA5E;
+    --warn-bg:     #2B2214;
+    --shadow:      0 1px 2px rgba(0,0,0,.4), 0 10px 28px -18px rgba(0,0,0,.9);
+  }
+}
+
+:root[data-theme="dark"] {
+  --ground: #0C131B; --surface: #131C26; --surface-alt: #18232F;
+  --ink: #DCE4EC; --ink-soft: #BAC6D2; --muted: #8B98A6;
+  --rule: #24303D; --rule-soft: #1C2733;
+  --accent: #74B4D6; --accent-soft: #14293A;
+  --illicit: #E9788C; --illicit-bg: #2E1820;
+  --licit: #63C0CE; --licit-bg: #12262B;
+  --warn: #D9AA5E; --warn-bg: #2B2214;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 28px -18px rgba(0,0,0,.9);
+}
+:root[data-theme="light"] {
+  --ground: #E9ECF1; --surface: #FFFFFF; --surface-alt: #F2F4F7;
+  --ink: #0F1922; --ink-soft: #33414F; --muted: #5C6975;
+  --rule: #C9D2DB; --rule-soft: #DDE3E9;
+  --accent: #0F4C6B; --accent-soft: #E2ECF2;
+  --illicit: #A81F38; --illicit-bg: #F7E5E8;
+  --licit: #16697A; --licit-bg: #E1EFF1;
+  --warn: #8A5B10; --warn-bg: #F8EEDC;
+  --shadow: 0 1px 2px rgba(15,25,34,.06), 0 8px 24px -16px rgba(15,25,34,.35);
+}
+
+/* ── Base ───────────────────────────────────────────────────────────────── */
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 17px;
+  line-height: 1.62;
+  -webkit-font-smoothing: antialiased;
+}
+
+p, li { color: var(--ink-soft); }
+p { margin: 0 0 1em; max-width: var(--measure); }
+a { color: var(--accent); text-underline-offset: .18em; text-decoration-thickness: .06em; }
+a:hover { text-decoration-thickness: .12em; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
+strong { color: var(--ink); font-weight: 600; }
+code, kbd { font-family: var(--mono); font-size: .84em; }
+p code, li code, td code {
+  background: var(--surface-alt); border: 1px solid var(--rule-soft);
+  padding: .06em .34em; border-radius: 3px; color: var(--ink);
+}
+hr { border: 0; border-top: 1px solid var(--rule); margin: 3rem 0; }
+
+h1, h2, h3, h4 { color: var(--ink); text-wrap: balance; margin: 0; }
+h2 { font-family: var(--serif); font-size: 1.72rem; line-height: 1.22; font-weight: 600; letter-spacing: -.01em; }
+h3 { font-family: var(--sans); font-size: 1.02rem; font-weight: 650; letter-spacing: .005em; margin: 2.1rem 0 .55rem; }
+h4 { font-family: var(--sans); font-size: .88rem; font-weight: 650; margin: 1.4rem 0 .4rem; }
+
+.eyebrow {
+  font-family: var(--sans); font-size: .68rem; font-weight: 650;
+  letter-spacing: .16em; text-transform: uppercase; color: var(--muted);
+}
+
+/* ── Estructura ─────────────────────────────────────────────────────────── */
+.shell { display: grid; grid-template-columns: var(--rail) minmax(0, 1fr); gap: 0; }
+
+.rail {
+  position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto;
+  border-right: 1px solid var(--rule); background: var(--surface);
+  padding: 1.6rem 1.1rem 3rem;
+}
+.rail-title {
+  font-family: var(--sans); font-size: .76rem; font-weight: 700;
+  letter-spacing: .05em; color: var(--ink); margin-bottom: .15rem;
+}
+.rail-sub { font-family: var(--sans); font-size: .7rem; color: var(--muted); margin-bottom: 1.2rem; }
+.rail nav { display: flex; flex-direction: column; gap: .04rem; }
+.rail nav a {
+  display: grid; grid-template-columns: 2.5rem 1fr; align-items: baseline; gap: .4rem;
+  font-family: var(--sans); font-size: .78rem; line-height: 1.3;
+  color: var(--ink-soft); text-decoration: none;
+  padding: .3rem .45rem; border-radius: 4px;
+}
+.rail nav a:hover { background: var(--accent-soft); color: var(--accent); }
+.rail nav a .num {
+  font-family: var(--mono); font-size: .68rem; color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.rail nav a:hover .num { color: var(--accent); }
+.rail-group {
+  font-family: var(--sans); font-size: .64rem; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--muted);
+  margin: 1.15rem 0 .3rem; padding-left: .45rem;
+}
+
+main { min-width: 0; padding: 0 0 6rem; }
+.wrap { max-width: 62rem; margin: 0 auto; padding: 0 clamp(1.1rem, 4vw, 3.2rem); }
+section { scroll-margin-top: 1.5rem; }
+
+/* ── Cabecera ───────────────────────────────────────────────────────────── */
+.masthead {
+  border-bottom: 1px solid var(--rule);
+  background:
+    repeating-linear-gradient(90deg, var(--rule-soft) 0 1px, transparent 1px 34px),
+    repeating-linear-gradient(0deg, var(--rule-soft) 0 1px, transparent 1px 34px),
+    var(--surface);
+  padding: clamp(2.4rem, 6vw, 4.2rem) 0 0;
+}
+.masthead .wrap { position: relative; }
+.masthead h1 {
+  font-family: var(--serif); font-weight: 600; letter-spacing: -.018em;
+  font-size: clamp(2rem, 4.6vw, 3.1rem); line-height: 1.08; margin: .5rem 0 .7rem;
+  max-width: 20ch;
+}
+.masthead .lede {
+  font-size: 1.06rem; color: var(--ink-soft); max-width: 56ch; margin-bottom: 1.6rem;
+}
+.masthead .motif { position: absolute; top: -.5rem; right: 0; width: 220px; opacity: .85; }
+@media (max-width: 880px) { .masthead .motif { display: none; } }
+
+.stats {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(8.2rem, 1fr));
+  border-top: 1px solid var(--rule); margin-top: 2rem;
+}
+.stat { padding: .95rem 0 1.15rem; border-right: 1px solid var(--rule-soft); }
+.stat:last-child { border-right: 0; }
+.stat .v {
+  font-family: var(--mono); font-size: 1.35rem; font-weight: 600; color: var(--ink);
+  font-variant-numeric: tabular-nums; letter-spacing: -.02em; display: block;
+}
+.stat .k {
+  font-family: var(--sans); font-size: .66rem; letter-spacing: .11em;
+  text-transform: uppercase; color: var(--muted);
+}
+
+/* ── Bloques ────────────────────────────────────────────────────────────── */
+.block { padding: 3.2rem 0 .6rem; }
+.block > .eyebrow { display: block; margin-bottom: .35rem; }
+.block > h2 { margin-bottom: 1rem; }
+
+.card {
+  background: var(--surface); border: 1px solid var(--rule);
+  border-radius: 6px; padding: 1.1rem 1.25rem; box-shadow: var(--shadow);
+}
+
+.callout {
+  border-left: 3px solid var(--accent); background: var(--accent-soft);
+  padding: .85rem 1.1rem; border-radius: 0 5px 5px 0; margin: 1.2rem 0;
+}
+.callout p:last-child { margin-bottom: 0; }
+.callout .eyebrow { display: block; margin-bottom: .3rem; color: var(--accent); }
+.callout.warn { border-left-color: var(--warn); background: var(--warn-bg); }
+.callout.warn .eyebrow { color: var(--warn); }
+
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr)); gap: 1rem; }
+
+/* ── Tablas ─────────────────────────────────────────────────────────────── */
+.tw { overflow-x: auto; margin: 1.1rem 0 1.6rem; border: 1px solid var(--rule); border-radius: 6px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-family: var(--sans); font-size: .82rem; }
+th, td { text-align: left; padding: .55rem .8rem; border-bottom: 1px solid var(--rule-soft); vertical-align: top; }
+thead th {
+  background: var(--surface-alt); color: var(--ink);
+  font-size: .68rem; letter-spacing: .09em; text-transform: uppercase; font-weight: 650;
+  border-bottom: 1px solid var(--rule); position: sticky; top: 0;
+}
+tbody tr:last-child td { border-bottom: 0; }
+td { color: var(--ink-soft); }
+td.num, th.num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+td.mono, .fn { font-family: var(--mono); font-size: .78rem; color: var(--ink); }
+
+/* ── Píldoras ───────────────────────────────────────────────────────────── */
+.pill {
+  display: inline-block; font-family: var(--sans); font-size: .64rem; font-weight: 650;
+  letter-spacing: .07em; text-transform: uppercase;
+  padding: .16rem .5rem; border-radius: 3px; white-space: nowrap;
+  border: 1px solid transparent;
+}
+.pill.a { background: var(--licit-bg); color: var(--licit); border-color: color-mix(in srgb, var(--licit) 28%, transparent); }
+.pill.b { background: var(--warn-bg); color: var(--warn); border-color: color-mix(in srgb, var(--warn) 28%, transparent); }
+.pill.bad { background: var(--illicit-bg); color: var(--illicit); border-color: color-mix(in srgb, var(--illicit) 28%, transparent); }
+.pill.neutral { background: var(--surface-alt); color: var(--muted); border-color: var(--rule); }
+
+/* ── Módulos ────────────────────────────────────────────────────────────── */
+.mod { border-top: 1px solid var(--rule); padding: 1.9rem 0 .4rem; }
+.mod-head { display: flex; align-items: baseline; gap: .85rem; flex-wrap: wrap; margin-bottom: .6rem; }
+.mod-num {
+  font-family: var(--mono); font-size: .78rem; font-weight: 600; color: var(--accent);
+  background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  padding: .1rem .45rem; border-radius: 3px; font-variant-numeric: tabular-nums;
+}
+.mod-head h3 { font-family: var(--serif); font-size: 1.28rem; font-weight: 600; margin: 0; letter-spacing: -.008em; }
+.mod-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 15rem); gap: 1.6rem; align-items: start; }
+@media (max-width: 900px) { .mod-body { grid-template-columns: 1fr; gap: .7rem; } }
+.mod-fns {
+  background: var(--surface-alt); border: 1px solid var(--rule-soft);
+  border-radius: 5px; padding: .7rem .8rem;
+}
+.mod-fns .eyebrow { display: block; margin-bottom: .4rem; font-size: .62rem; }
+.mod-fns ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .16rem; }
+.mod-fns li { font-family: var(--mono); font-size: .73rem; color: var(--ink); line-height: 1.4; }
+.decision {
+  font-family: var(--sans); font-size: .8rem; color: var(--ink-soft);
+  border-left: 2px solid var(--rule); padding-left: .8rem; margin: .8rem 0 0; max-width: var(--measure);
+}
+.decision b { font-family: var(--sans); color: var(--ink); }
+
+/* ── Catálogo con filtro ────────────────────────────────────────────────── */
+.filterbar { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; margin-bottom: .9rem; }
+.filterbar input {
+  font-family: var(--sans); font-size: .85rem; color: var(--ink);
+  background: var(--surface); border: 1px solid var(--rule);
+  border-radius: 5px; padding: .45rem .7rem; min-width: 16rem; flex: 1 1 16rem;
+}
+.filterbar input::placeholder { color: var(--muted); }
+.count { font-family: var(--mono); font-size: .75rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+tr.hidden { display: none; }
+
+/* ── Hallazgos ──────────────────────────────────────────────────────────── */
+.finding { display: grid; grid-template-columns: 3.3rem minmax(0,1fr); gap: .9rem; padding: 1rem 0; border-bottom: 1px solid var(--rule-soft); }
+.finding:last-child { border-bottom: 0; }
+.finding .tag {
+  font-family: var(--mono); font-size: .72rem; font-weight: 600; color: var(--illicit);
+  border: 1px solid color-mix(in srgb, var(--illicit) 30%, transparent);
+  background: var(--illicit-bg); border-radius: 3px; padding: .1rem 0; text-align: center; height: fit-content;
+}
+.finding h4 { margin: 0 0 .25rem; font-size: .95rem; }
+.finding p { margin: 0; font-size: .95rem; }
+
+/* ── Diagrama de esquema ────────────────────────────────────────────────── */
+.schema { overflow-x: auto; background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 1.1rem; }
+.schema pre {
+  font-family: var(--mono); font-size: .74rem; line-height: 1.5; color: var(--ink-soft);
+  margin: 0; white-space: pre;
+}
+
+.files { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: .5rem; }
+.files li { display: grid; grid-template-columns: minmax(0, 15rem) minmax(0,1fr); gap: .8rem; align-items: baseline; font-size: .9rem; }
+.files .fname { font-family: var(--mono); font-size: .8rem; color: var(--ink); }
+@media (max-width: 620px) { .files li { grid-template-columns: 1fr; gap: .1rem; } }
+
+footer { border-top: 1px solid var(--rule); margin-top: 3rem; padding-top: 1.4rem; }
+footer p { font-family: var(--sans); font-size: .78rem; color: var(--muted); }
+
+@media (max-width: 960px) {
+  .shell { grid-template-columns: 1fr; }
+  .rail { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--rule); }
+  .rail nav { display: grid; grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+html { scroll-behavior: smooth; }
+</style>
+
+<div class="shell">
+
+<aside class="rail">
+  <div class="rail-title">Modelamiento de Grafos</div>
+  <div class="rail-sub">Documentación técnica · <code>AnalisisGrafos.ipynb</code></div>
+  <nav aria-label="Índice">
+    <a href="#resumen"><span class="num">§</span><span>Resumen</span></a>
+    <a href="#entrega"><span class="num">§</span><span>Qué se entrega</span></a>
+    <a href="#datos"><span class="num">§</span><span>Los datos</span></a>
+    <a href="#diagnostico"><span class="num">§</span><span>Diagnóstico del original</span></a>
+    <a href="#hallazgos"><span class="num">§</span><span>Hallazgos</span></a>
+    <a href="#escala"><span class="num">§</span><span>Decisiones de escala</span></a>
+
+    <div class="rail-group">Los 24 módulos</div>
+    <a href="#m0"><span class="num">M0</span><span>Introducción a grafos</span></a>
+    <a href="#m1"><span class="num">M1</span><span>Modelado de datos</span></a>
+    <a href="#m2"><span class="num">M2</span><span>Construcción</span></a>
+    <a href="#m3"><span class="num">M3</span><span>Descriptivas</span></a>
+    <a href="#m4"><span class="num">M4</span><span>Componentes</span></a>
+    <a href="#m5"><span class="num">M5</span><span>Caminos</span></a>
+    <a href="#m6"><span class="num">M6</span><span>Centralidad</span></a>
+    <a href="#m7"><span class="num">M7</span><span>Comunidades</span></a>
+    <a href="#m8"><span class="num">M8</span><span>Motifs</span></a>
+    <a href="#m9"><span class="num">M9</span><span>Clustering</span></a>
+    <a href="#m10"><span class="num">M10</span><span>Redes temporales</span></a>
+    <a href="#m11"><span class="num">M11</span><span>Ingeniería de features</span></a>
+    <a href="#m12"><span class="num">M12</span><span>Link prediction</span></a>
+    <a href="#m13"><span class="num">M13</span><span>Embeddings</span></a>
+    <a href="#m14"><span class="num">M14</span><span>Anomalías</span></a>
+    <a href="#m15"><span class="num">M15</span><span>Graph ML</span></a>
+    <a href="#m16"><span class="num">M16</span><span>Graph Neural Networks</span></a>
+    <a href="#m17"><span class="num">M17</span><span>Visualización</span></a>
+    <a href="#m18"><span class="num">M18</span><span>Fraude bancario</span></a>
+    <a href="#m19"><span class="num">M19</span><span>Casos de uso</span></a>
+    <a href="#m20"><span class="num">M20</span><span>Bases de datos</span></a>
+    <a href="#m21"><span class="num">M21</span><span>Lenguajes</span></a>
+    <a href="#m22"><span class="num">M22</span><span>Escalabilidad</span></a>
+    <a href="#m23"><span class="num">M23</span><span>Investigación (SOTA)</span></a>
+
+    <div class="rail-group">Referencia</div>
+    <a href="#catalogo"><span class="num">§</span><span>Catálogo de funciones</span></a>
+    <a href="#limites"><span class="num">§</span><span>Limitaciones</span></a>
+    <a href="#glosario"><span class="num">§</span><span>Glosario</span></a>
+    <a href="#refs"><span class="num">§</span><span>Referencias</span></a>
+  </nav>
+</aside>
+
+<main>
+
+<header class="masthead">
+  <div class="wrap">
+    <svg class="motif" viewBox="0 0 220 130" aria-hidden="true">
+      <g stroke="var(--rule)" stroke-width="1" fill="none">
+        <path d="M22 96 L58 62 M58 62 L104 40 M58 62 L96 92 M104 40 L152 30 M104 40 L148 68 M96 92 L148 68 M148 68 L192 52 M152 30 L192 52 M96 92 L134 112 M134 112 L182 100 M148 68 L182 100 M22 96 L64 116"/>
+      </g>
+      <g fill="var(--licit)" opacity=".9">
+        <circle cx="22" cy="96" r="4"/><circle cx="104" cy="40" r="4.5"/>
+        <circle cx="152" cy="30" r="3.5"/><circle cx="192" cy="52" r="4"/>
+        <circle cx="64" cy="116" r="3"/><circle cx="182" cy="100" r="3.5"/>
+      </g>
+      <g fill="var(--illicit)">
+        <circle cx="58" cy="62" r="5.5"/><circle cx="148" cy="68" r="5"/>
+      </g>
+      <g fill="var(--muted)" opacity=".55">
+        <circle cx="96" cy="92" r="3.5"/><circle cx="134" cy="112" r="3"/>
+      </g>
+    </svg>
+
+    <span class="eyebrow">Elliptic Bitcoin Dataset · Grafo bancario sintético</span>
+    <h1>Modelamiento de grafos aplicado a la detección de fraude</h1>
+    <p class="lede">
+      Reescritura completa de <code>AnalisisGrafos.ipynb</code>: 24 módulos que van del dato
+      tabular al Graph Machine Learning, con 118 funciones documentadas, dos grafos de trabajo
+      y las decisiones de escala explicadas una por una.
+    </p>
+
+    <div class="stats">
+      <div class="stat"><span class="v">203 769</span><span class="k">Nodos</span></div>
+      <div class="stat"><span class="v">234 355</span><span class="k">Aristas</span></div>
+      <div class="stat"><span class="v">49</span><span class="k">Timesteps</span></div>
+      <div class="stat"><span class="v">46 564</span><span class="k">Etiquetados</span></div>
+      <div class="stat"><span class="v">118</span><span class="k">Funciones</span></div>
+      <div class="stat"><span class="v">124</span><span class="k">Celdas</span></div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+<!-- ══════════════════════════════════════════════════════════════════════ -->
+<section id="resumen" class="block">
+  <span class="eyebrow">Resumen</span>
+  <h2>Qué problema resuelve este trabajo</h2>
+
+  <p>
+    El notebook de partida era un borrador de 49 celdas sobre el <strong>Elliptic Bitcoin
+    Dataset</strong>. Cubría de forma parcial los módulos 5 a 12 y arrastraba nueve defectos
+    concretos, desde código duplicado cuatro veces hasta dos celdas que fallaban con una
+    excepción. La reescritura persigue tres objetivos:
+  </p>
+
+  <ol>
+    <li><strong>Cobertura completa</strong> de los 24 módulos del temario, cada uno con teoría,
+      funciones reutilizables y resultados sobre datos reales.</li>
+    <li><strong>Honestidad metodológica</strong>: cada aproximación que se toma por coste
+      computacional queda documentada, y cada riesgo de fuga de información se mide en lugar
+      de suponerse.</li>
+    <li><strong>Reutilización</strong>: 118 funciones con docstring, contrato de entrada y salida
+      y nota de complejidad, aplicables a cualquier otro grafo.</li>
+  </ol>
+
+  <h3>Los dos grafos de trabajo</h3>
+  <p>
+    Ningún dataset por sí solo cubre el temario. Elliptic aporta escala y realismo pero es
+    <em>homogéneo</em> —solo existe el nodo «transacción»—, así que no puede demostrar el
+    modelado de entidades bancarias ni las tipologías de fraude. Se genera por tanto un segundo
+    grafo sintético con ground truth conocido.
+  </p>
+
+  <div class="tw">
+    <table>
+      <thead>
+        <tr><th></th><th>Grafo A — Elliptic</th><th>Grafo B — Banca sintética</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Origen</td><td>Kaggle <code>ellipticco/elliptic-data-set</code> (real)</td><td>Generado en el M1 con semilla fija</td></tr>
+        <tr><td>Escala</td><td class="num">203 769 nodos · 234 355 aristas</td><td class="num">~6 800 nodos · ~11 000 aristas</td></tr>
+        <tr><td>Estructura</td><td>Homogéneo, dirigido, <strong>acíclico</strong>, temporal</td><td><strong>Heterogéneo</strong>, multigrafo dirigido, con atributos</td></tr>
+        <tr><td>Etiquetas</td><td>46 564 transacciones lícito/ilícito (22,9 %)</td><td>Ground truth de 6 patrones inyectados</td></tr>
+        <tr><td>Aporta</td><td>Escala real, métricas, ML, GNN, análisis temporal</td><td>Modelado de entidades, tipologías, Cypher, detectores</td></tr>
+        <tr><td>Módulos</td><td>3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15, 22</td><td>1, 8, 16, 18, 19, 20, 21, 23</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════ -->
+<section id="entrega" class="block">
+  <span class="eyebrow">Entregables</span>
+  <h2>Qué se entrega y cómo ejecutarlo</h2>
+
+  <ul class="files">
+    <li><span class="fname">AnalisisGrafos.ipynb</span><span>El notebook reescrito. 124 celdas (92 de código, 32 de markdown), sin salidas guardadas para forzar una ejecución limpia de arriba abajo.</span></li>
+    <li><span class="fname">AnalisisGrafos_original_backup.ipynb</span><span>Copia intacta del notebook de partida, por si hace falta contrastar.</span></li>
+    <li><span class="fname">requirements.txt</span><span>Dependencias base y opcionales, con notas sobre qué trae Colab preinstalado.</span></li>
+    <li><span class="fname">Documentacion_Grafos.html</span><span>Este documento.</span></li>
+  </ul>
+
+  <h3>Ejecución</h3>
+  <p>
+    El notebook es <strong>portable</strong>: la celda de configuración detecta el entorno,
+    instala solo lo que falte y levanta banderas de capacidad (<code>TORCH_OK</code>,
+    <code>GENSIM_OK</code>, <code>IGRAPH_OK</code>…). Un entorno mínimo con
+    <code>networkx + pandas + numpy + scipy + matplotlib + scikit-learn</code> recorre los 24
+    módulos sin lanzar una sola excepción; las celdas que necesitan una librería ausente
+    imprimen un aviso y se saltan.
+  </p>
+  <ul>
+    <li><strong>Google Colab</strong> — <em>Entorno de ejecución → Ejecutar todo</em>. Los datos se descargan con <code>kagglehub</code> (146 MB).</li>
+    <li><strong>Local</strong> — <code>pip install -r requirements.txt</code>. Si ya tienes los tres CSV, colócalos en <code>./data/</code> y se usan sin descargar nada.</li>
+  </ul>
+
+  <div class="callout warn">
+    <span class="eyebrow">Verificación pendiente de ejecución</span>
+    <p>
+      El notebook se entrega sin salidas y no ha sido ejecutado en el entorno de desarrollo
+      (esta máquina no tiene Python instalado). Se ha validado estáticamente: JSON conforme a
+      nbformat 4.4, ninguna función usada antes de definirse, delimitadores equilibrados en las
+      92 celdas de código y ausencia de los patrones defectuosos del original. Las cifras que
+      aparecen en este documento proceden de la ejecución previa del notebook original y de la
+      estructura verificable del dataset; las métricas de los modelos (M13–M16, M19) se llenan
+      al ejecutarlo.
+    </p>
+  </div>
+
+  <h3>Cómo comprobar que salió bien</h3>
+  <ol>
+    <li><code>estadisticas_basicas(G)</code> debe reportar 203 769 nodos, 234 355 aristas y densidad 5,644 × 10⁻⁶.</li>
+    <li><code>verificar_componentes_vs_timesteps(G, df_nodos)</code> debe devolver <code>True</code> en la biyección.</li>
+    <li><code>evaluar_detectores(...)</code> sobre el grafo sintético debe recuperar los patrones inyectados con recall alto.</li>
+    <li>El F1 de la clase ilícita en M15 debe caer en torno a 0,7–0,8 con Random Forest. <strong>Muy por encima de 0,9 significa fuga</strong>, no un buen modelo.</li>
+  </ol>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════ -->
+<section id="datos" class="block">
+  <span class="eyebrow">Los datos</span>
+  <h2>Esquema y perfilado</h2>
+
+  <p>
+    Elliptic se distribuye como tres CSV que forman un esquema en estrella alrededor de
+    <code>txId</code>. Tres detalles condicionan todo lo que viene después.
+  </p>
+
+  <div class="schema">
+<pre>elliptic_txs_features.csv[0]  ──┐
+                                ├── txId  (203 769 identificadores únicos)
+elliptic_txs_classes.csv[txId] ─┤
+                                │
+elliptic_txs_edgelist.csv[txId1] ─┤  FK → txId  (origen del flujo)
+elliptic_txs_edgelist.csv[txId2] ─┘  FK → txId  (destino del flujo)</pre>
+  </div>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>Archivo</th><th>Cabecera</th><th>Contenido</th><th class="num">Filas</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="mono">elliptic_txs_classes.csv</td><td>sí</td>
+          <td><code>txId</code>, <code>class</code> → <code>'1'</code> ilícito, <code>'2'</code> lícito, <code>'unknown'</code></td>
+          <td class="num">203 769</td>
+        </tr>
+        <tr>
+          <td class="mono">elliptic_txs_features.csv</td><td><strong>no</strong></td>
+          <td>col <code>0</code> = txId · col <code>1</code> = timestep (1–49) · <code>2–94</code> locales · <code>95–166</code> agregadas</td>
+          <td class="num">203 769</td>
+        </tr>
+        <tr>
+          <td class="mono">elliptic_txs_edgelist.csv</td><td>sí</td>
+          <td><code>txId1</code> → <code>txId2</code> (flujo de fondos)</td>
+          <td class="num">234 355</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h4><code>class</code> es texto, no número</h4>
+      <p>Contiene el literal <code>'unknown'</code>, así que un <code>astype(int)</code> directo revienta. Solo el <strong>22,9 %</strong> de los nodos está etiquetado, y dentro de lo etiquetado apenas el <strong>9,8 %</strong> es ilícito.</p>
+    </div>
+    <div class="card">
+      <h4><code>features</code> no tiene cabecera</h4>
+      <p>Hay que leerlo con <code>header=None</code>. La función <code>normalizar_features</code> renombra las 167 columnas a <code>txId</code>, <code>timestep</code>, <code>local_1..93</code> y <code>agg_1..72</code>.</p>
+    </div>
+    <div class="card">
+      <h4>Las agregadas ya son features de grafo</h4>
+      <p>Las 72 columnas <code>agg_*</code> son estadísticos de las features locales de los <em>vecinos a un salto</em>. Elliptic trae media capa de GNN incorporada, y eso explica buena parte de los resultados del M16.</p>
+    </div>
+    <div class="card">
+      <h4>Integridad perfecta</h4>
+      <p>Cero aristas huérfanas, cero nodos aislados, cero self-loops y cero filas duplicadas. Todo <code>txId</code> de la lista de aristas existe como nodo y participa en el flujo.</p>
+    </div>
+  </div>
+
+  <h3>El esquema del grafo bancario</h3>
+  <p>
+    Doce tipos de entidad y nueve tipos de relación. Las cuatro entidades de identificador
+    compartido —IP, dispositivo, teléfono y dirección— son las que <strong>crean caminos entre
+    clientes sin relación declarada</strong>. Si se modelan como columnas de una tabla, esos
+    caminos no existen y ningún algoritmo los encontrará.
+  </p>
+
+  <div class="schema">
+<pre>                 ┌────────────┐
+       ┌─posee──►│   Cuenta   │◄──recibe──┐
+       │         └─────┬──────┘           │
+       │               │ emite            │
+       │               ▼                  │
+       │        ┌──────────────┐          │
+       │        │Transferencia │──────────┘   {monto, ts, canal}
+       │        └──────────────┘
+       │
+  ┌────┴─────┐  posee   ┌──────────┐ realiza  ┌────────┐  en   ┌──────────┐
+  │ Cliente  ├─────────►│ Tarjeta  ├─────────►│ Compra ├──────►│ Comercio │
+  └────┬─────┘          └──────────┘          └────────┘       └──────────┘
+       │ utiliza
+       ├──────────► Dispositivo   ◄── los nodos compartidos son los que
+       ├──────────► IP                revelan los anillos de fraude
+       ├──────────► Teléfono
+       └─reside_en► Dirección
+
+  Cuenta ──opera_en──► ATM ──pertenece_a──► Agencia</pre>
+  </div>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>Patrón inyectado</th><th>Firma topológica</th><th>Detector</th></tr></thead>
+      <tbody>
+        <tr><td><span class="pill bad">money mule</span></td><td>Fan-in de muchos orígenes + fan-out inmediato de casi todo el importe</td><td class="mono">detectar_money_mule</td></tr>
+        <tr><td><span class="pill bad">AML layering</span></td><td>Ciclo dirigido con importes casi constantes en cada salto</td><td class="mono">detectar_layering_aml</td></tr>
+        <tr><td><span class="pill bad">device sharing</span></td><td>Muchos clientes «independientes» colgando de un dispositivo o IP</td><td class="mono">detectar_device_sharing</td></tr>
+        <tr><td><span class="pill bad">identidad sintética</span></td><td>Clientes distintos que comparten teléfono y dirección</td><td class="mono">detectar_identidad_sintetica</td></tr>
+        <tr><td><span class="pill bad">account takeover</span></td><td>Dispositivo e IP nuevos + transferencia grande en menos de 48 h</td><td class="mono">detectar_account_takeover</td></tr>
+        <tr><td><span class="pill bad">card testing</span></td><td>Una tarjeta, decenas de micro-compras, muchos comercios, pocas horas</td><td class="mono">detectar_card_testing</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════ -->
+<section id="diagnostico" class="block">
+  <span class="eyebrow">Punto de partida</span>
+  <h2>Diagnóstico del notebook original</h2>
+
+  <p>
+    Nueve defectos encontrados en las 49 celdas originales, y cómo se corrigen. Siete son
+    errores de código; dos son problemas metodológicos que producían conclusiones equivocadas.
+  </p>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th style="width:2.6rem">#</th><th>Defecto</th><th>Evidencia</th><th>Corrección</th></tr></thead>
+      <tbody>
+        <tr><td class="num">1</td><td>~37 % del notebook era código duplicado</td><td>Las celdas 31–48 repiten tres veces el bloque de los módulos 9/11/12</td><td>Estructura lineal sin repeticiones</td></tr>
+        <tr><td class="num">2</td><td>Dos celdas fallaban</td><td class="mono">AttributeError: 'csr_array' object has no attribute 'asfptype'</td><td><code>to_scipy_sparse_array(dtype=float)</code> en <code>embeddings_svd</code></td></tr>
+        <tr><td class="num">3</td><td>Typo propagado</td><td><code>df_clasess</code> en nueve celdas</td><td><code>df_classes</code></td></tr>
+        <tr><td class="num">4</td><td>Rama de error rota</td><td>Asignaba <code>df = None</code> en vez de la variable correcta → <code>NameError</code> confuso más abajo</td><td><code>FileNotFoundError</code> con instrucciones accionables</td></tr>
+        <tr><td class="num">5</td><td>165 features cargadas y nunca usadas</td><td>El markdown afirmaba integrarlas; <code>ml_df</code> solo tenía grado, PageRank, comunidad y clase</td><td><code>unir_con_features_originales</code> las incorpora</td></tr>
+        <tr><td class="num">6</td><td>Subgrafo inútil</td><td><code>H = G.subgraph(list(G.nodes())[:80])</code> nunca es conexo, así que el camino medio siempre caía al <code>except</code></td><td><code>muestrear_subgrafo</code> con cuatro estrategias y sus sesgos documentados</td></tr>
+        <tr><td class="num">7</td><td>Métrica anunciada y no calculada</td><td>El markdown del M7 prometía betweenness; nunca se computaba</td><td>Calculada con muestreo, y medido el error de la aproximación</td></tr>
+        <tr><td class="num">8</td><td>Ejecución no reproducible</td><td>Execution counts 1, 8, 10, 5, 7, 11 … 43</td><td>Notebook lineal, entregado sin salidas</td></tr>
+        <tr><td class="num">9</td><td>Sin declaración de dependencias</td><td>Ni <code>pip install</code> ni <code>requirements</code>; <code>display()</code> usado sin importar</td><td>Instalación portable + <code>from IPython.display import display</code> con respaldo</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════ -->
+<section id="hallazgos" class="block">
+  <span class="eyebrow">Análisis</span>
+  <h2>Cinco hallazgos que cambian el análisis</h2>
+
+  <p>
+    No son curiosidades: cada uno invalida o condiciona un análisis que parecía razonable.
+  </p>
+
+  <div class="finding">
+    <span class="tag">H1</span>
+    <div>
+      <h4>Las 49 componentes débiles son exactamente los 49 timesteps</h4>
+      <p>
+        Ninguna arista cruza el tiempo. Elliptic no es una red temporal continua: son
+        <strong>49 grafos independientes</strong>. No existe ningún camino que conecte una
+        transacción del timestep 3 con una del 40, así que «rastrea este dinero a lo largo de
+        seis meses» no tiene respuesta en este dataset. Diámetro, radio y excentricidad solo
+        tienen sentido dentro de un timestep. <em>(M4 · <code>verificar_componentes_vs_timesteps</code>)</em>
+      </p>
+    </div>
+  </div>
+
+  <div class="finding">
+    <span class="tag">H2</span>
+    <div>
+      <h4>El grafo es un DAG: cero ciclos, cero reciprocidad</h4>
+      <p>
+        Las 203 769 componentes fuertemente conexas son todas de un solo nodo. Lo impone el
+        protocolo: una transacción de Bitcoin solo puede gastar salidas de transacciones
+        anteriores. Consecuencia directa: <strong>la detección de layering por ciclos es
+        inaplicable a nivel de transacción</strong> —solo funciona a nivel de entidad, que es
+        para lo que existe el grafo bancario—. Como efecto secundario, la matriz de adyacencia
+        es nilpotente y la centralidad de Katz converge para cualquier α.
+        <em>(M4, M6, M8)</em>
+      </p>
+    </div>
+  </div>
+
+  <div class="finding">
+    <span class="tag">H3</span>
+    <div>
+      <h4>«Vecinos fraudulentos» es fuga pura bajo el split temporal</h4>
+      <p>
+        Como ninguna arista cruza timesteps, <strong>todos</strong> los vecinos de un nodo de
+        test están también en test: usar sus etiquetas es usar la respuesta. Calculada solo con
+        etiquetas de entrenamiento, la feature es siempre cero en test y no aporta nada. El
+        notebook implementa las dos versiones y <strong>mide la diferencia</strong> en lugar de
+        afirmarla, y solo la versión honesta entra en el modelo. <em>(M11)</em>
+      </p>
+    </div>
+  </div>
+
+  <div class="finding">
+    <span class="tag">H4</span>
+    <div>
+      <h4>El fraude se concentra en comunidades concretas</h4>
+      <p>
+        Muy por encima de la tasa base. Que la distribución no sea uniforme significa que la
+        <strong>pertenencia a una comunidad es información predictiva</strong> sobre un nodo,
+        más allá de sus propios atributos. Es la justificación empírica de meter features de
+        comunidad en el modelo. <em>(M7 → M11 → M15)</em>
+      </p>
+    </div>
+  </div>
+
+  <div class="finding">
+    <span class="tag">H5</span>
+    <div>
+      <h4>El cierre de mercado del timestep 43 degrada el modelo de forma visible</h4>
+      <p>
+        La proporción de ilícitos se desploma tras <code>t = 43</code> y el rendimiento del
+        clasificador cae con ella. Un F1 agregado sobre todo el test lo habría ocultado; el
+        desglose timestep a timestep lo hace evidente. Es <em>concept drift</em>, y es la razón
+        por la que un sistema de fraude necesita reentrenamiento continuo y monitorización de
+        deriva. También explica por qué el split debe ser temporal y nunca aleatorio.
+        <em>(M10 → M15)</em>
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════ -->
+<section id="escala" class="block">
+  <span class="eyebrow">Método</span>
+  <h2>Decisiones de escala</h2>
+
+  <p>
+    Con 203 769 nodos, varios algoritmos exactos son inviables. Cada aproximación está
+    declarada en el módulo donde se usa, junto con el motivo. Ninguna se toma en silencio.
+  </p>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>Algoritmo</th><th>Coste exacto</th><th>Decisión tomada</th><th>Módulo</th></tr></thead>
+      <tbody>
+        <tr><td>Betweenness</td><td class="mono">O(n·m) ≈ 4,8·10¹⁰</td><td>Muestreo de Brandes con <code>k = 500</code> pivotes, y se mide el error frente al valor exacto en un subgrafo</td><td>M6</td></tr>
+        <tr><td>Closeness</td><td class="mono">O(n·m)</td><td>Exacta dentro de un timestep, que es donde la métrica tiene significado</td><td>M6</td></tr>
+        <tr><td>Floyd-Warshall</td><td class="mono">O(n³) ≈ 8,4·10¹⁵</td><td>Solo sobre 500 nodos, con la extrapolación de tiempo y memoria impresa (332 GB para la matriz completa)</td><td>M5</td></tr>
+        <tr><td>Diámetro / radio / excentricidad</td><td class="mono">O(n·m)</td><td>Exacto en la mayor componente de <code>H</code>; doble barrido BFS —cota inferior en O(m)— para el timestep completo</td><td>M5</td></tr>
+        <tr><td>Girvan-Newman</td><td class="mono">O(m²·n)</td><td>Subgrafo de 250 nodos; sirve para mostrar la jerarquía completa, no para producción</td><td>M7</td></tr>
+        <tr><td>Eigenvector en digrafo</td><td>no converge</td><td>Proyección no dirigida, y se documenta la patología de concentración en un grafo desconectado</td><td>M6</td></tr>
+        <tr><td>Katz</td><td>matriz densa n×n</td><td>Implementación propia por iteración sobre matriz dispersa (<code>katz_sparse</code>)</td><td>M6</td></tr>
+        <tr><td>Node2Vec / LINE</td><td>millones de tokens</td><td>Un timestep completo como grafo de trabajo; caminatas propias sin tablas de alias</td><td>M13</td></tr>
+        <tr><td>DOMINANT</td><td class="mono">O(n²) en memoria</td><td>Reconstrucción densa limitada a 8 000 nodos, con <code>MemoryError</code> explícito por encima</td><td>M14</td></tr>
+        <tr><td>OddBall</td><td>un egonet por nodo</td><td>Muestra de 20 000 egonets: el ajuste de la recta converge mucho antes</td><td>M14</td></tr>
+        <tr><td>GNN</td><td>—</td><td>Grafo completo, dos capas, split temporal estándar (train <code>t ≤ 34</code>, test <code>t ≥ 35</code>)</td><td>M16</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout">
+    <span class="eyebrow">El patrón general</span>
+    <p>
+      Si un algoritmo se expresa como productos matriz-vector, sácalo de NetworkX y llévalo a
+      SciPy disperso: es el mismo algoritmo con el bucle interno en C. Si es un recorrido
+      irregular —BFS, ciclos, motifs—, NetworkX está bien. El M22 mide esa diferencia
+      reimplementando PageRank y comparando ambos resultados hasta la precisión numérica.
+    </p>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════ -->
+<section class="block">
+  <span class="eyebrow">Contenido</span>
+  <h2>Los 24 módulos</h2>
+  <p>
+    Cada módulo sigue el mismo patrón: una celda de markdown con la teoría, una celda que define
+    funciones y una o dos que las aplican. La numeración no es decorativa —el notebook está
+    diseñado para ejecutarse en orden y cada módulo reutiliza objetos de los anteriores.
+  </p>
+
+  <!-- M0 -->
+  <article class="mod" id="m0">
+    <div class="mod-head"><span class="mod-num">M0</span><h3>Introducción a grafos</h3><span class="pill neutral">grafos juguete</span></div>
+    <div class="mod-body">
+      <div>
+        <p>Conceptos fundamentales y tipología completa: dirigido, no dirigido, ponderado, bipartito, multigrafo, hipergrafo y heterogéneo, cada uno como un ejemplar mínimo dibujado con la codificación visual propia de su familia. Más las propiedades estructurales: orden, tamaño, densidad, conexidad, aciclicidad, regularidad, reciprocidad y asortatividad.</p>
+        <p class="decision"><b>Grafo vs. relacional, medido.</b> En lugar de afirmar que los grafos son mejores para consultas de conectividad, se construye la misma relación en las dos representaciones y se ejecuta la misma consulta de <em>k</em> saltos. Se comprueba que ambos devuelven idéntico resultado y se mide cómo diverge el tiempo: el coste relacional depende del tamaño de la <em>relación</em>, el del grafo depende del tamaño del <em>vecindario</em>.</p>
+      </div>
+      <div class="mod-fns">
+        <span class="eyebrow">Funciones</span>
+        <ul><li>grafos_ejemplo</li><li>propiedades_grafo</li><li>dibujar_familias</li><li>comparar_grafo_vs_relacional</li></ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- M1 -->
+  <article class="mod" id="m1">
+    <div class="mod-head"><span class="mod-num">M1</span><h3>Modelado de datos</h3><span class="pill a">Elliptic</span><span class="pill b">Banca</span></div>
+    <div class="mod-body">
+      <div>
+        <p>Las cuatro decisiones del modelado en su orden correcto: qué es un nodo, qué es una arista, cuándo reificar una relación y qué atributos van dónde. Property Graph frente a RDF frente a Knowledge Graph, con el mismo nodo expresado en los tres formalismos y una ontología que muestra qué aristas se pueden <em>inferir</em> sin almacenarlas.</p>
+        <p class="decision"><b>Regla operativa.</b> Es un nodo aquello sobre lo que quieres preguntar «¿con qué se conecta?». Si de una columna solo vas a filtrar o agregar, es un atributo. La misma columna admite los dos modelados según la pregunta que quieras poder responder.</p>
+        <p class="decision"><b>Grafo sintético con ground truth.</b> Que sea sintético es una ventaja metodológica: sabemos exactamente qué fraude contiene, así que el recall de los detectores del M19 es real. Con datos de fraude reales nunca se conoce el denominador y toda evaluación es optimista por construcción.</p>
+      </div>
+      <div class="mod-fns">
+        <span class="eyebrow">Funciones</span>
+        <ul><li>tabular_a_grafo</li><li>build_banking_graph</li><li>a_property_graph</li><li>a_tripletas_rdf</li><li>tripletas_a_ntriples</li></ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- M2 -->
+  <article class="mod" id="m2">
+    <div class="mod-head"><span class="mod-num">M2</span><h3>Construcción del grafo</h3><span class="pill a">Elliptic</span></div>
+    <div class="mod-body">
+      <div>
+        <p>La API de NetworkX y las cuatro clases de grafo, con una demostración de qué se pierde al colapsar un multigrafo. Construcción desde DataFrames y CSV, subgrafos por timestep, redes ego y cuatro estrategias de muestreo con sus sesgos declarados.</p>
+        <p class="decision"><b>Las features no van en el grafo.</b> Adjuntar las 165 columnas como atributos de nodo significa 203 769 diccionarios de 165 claves: del orden de 1–2 GB frente a los 135 MB del mismo dato en un array NumPy. Solo se cuelgan del grafo <code>timestep</code>, <code>clase</code> y <code>y</code>; el resto vive en un DataFrame alineado por posición.</p>
+        <p class="decision"><b>El orden de <code>G.nodes()</code> es un contrato.</b> Las matrices dispersas y los tensores de M13 y M16 se construyen con <code>nodelist</code>; si la tabla y la matriz no comparten orden, las features quedan asignadas al nodo equivocado. No lanza excepción: produce un modelo que entrena, converge y no significa nada. Por eso M16 lo verifica con un <code>assert</code>.</p>
+      </div>
+      <div class="mod-fns">
+        <span class="eyebrow">Funciones</span>
+        <ul><li>construir_grafo_elliptic</li><li>tabla_nodos</li><li>subgrafo_timestep</li><li>subgrafo_ego</li><li>muestrear_subgrafo</li></ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- M3 -->
+  <article class="mod" id="m3">
+    <div class="mod-head"><span class="mod-num">M3</span><h3>Estadísticas descriptivas</h3><span class="pill a">Elliptic</span></div>
+    <div class="mod-body">
+      <div>
+        <p>Número de nodos y aristas, self-loops, densidad, grados de entrada y salida, distribución de grados y hubs. Cuatro visualizaciones de la misma distribución —histograma lineal, log-log, CCDF y dispersión in/out— cada una elegida por lo que revela y por lo que la anterior oculta.</p>
+        <p class="decision"><b>La media no describe esta distribución.</b> Grado medio ≈ 2,3 y grado máximo 472. Con γ &lt; 3 la varianza teórica diverge, así que el resto del notebook trabaja con percentiles y rangos. El exponente se estima por dos vías —regresión log-log y máxima verosimilitud de Clauset et al.— y se reportan las dos, porque si divergen mucho la distribución no es una ley de potencias pura.</p>
+      </div>
+      <div class="mod-fns">
+        <span class="eyebrow">Funciones</span>
+        <ul><li>estadisticas_basicas</li><li>tabla_grados</li><li>detectar_hubs</li><li>ajustar_ley_potencias</li><li>distribucion_grados</li></ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- M4 -->
+  <article class="mod" id="m4">
+    <div class="mod-head"><span class="mod-num">M4</span><h3>Componentes</h3><span class="pill a">Elliptic</span><span class="pill b">Banca</span></div>
+    <div class="mod-body">
+      <div>
+        <p>Componentes débiles y fuertes, componente mayor y componente gigante. Aquí aparecen <a href="#hallazgos">H1 y H2</a>, los dos hallazgos que reconfiguran el resto del análisis.</p>
+        <p class="decision"><b>Aplicación en el grafo bancario.</b> Un simple análisis de componentes conexas sobre la proyección correcta —clientes conectados por recurso compartido— recupera casi todos los anillos inyectados, sin machine learning de por medio. El trabajo estaba en el modelado, no en el algoritmo.</p>
+      </div>
+      <div class="mod-fns">
+        <span class="eyebrow">Funciones</span>
+        <ul><li>analizar_componentes</li><li>verificar_componentes_vs_timesteps</li><li>proyectar_clientes_por_recurso</li><li>anillos_por_componente</li></ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- M5 -->
+  <article class="mod" id="m5">
+    <div class="mod-head"><span class="mod-num">M5</span><h3>Caminos</h3><span class="pill a">Elliptic</span></div>
+    <div class="mod-body">
+      <div>
+        <p>BFS, Dijkstra, Bellman-Ford, Floyd-Warshall y A* tras una API única, con la demostración de por qué Dijkstra <em>falla</em> —no se ralentiza— con pesos negativos. Diámetro, radio, excentricidad, centro y periferia, y el rastreo de flujo de fondos nivel a nivel desde una transacción señalada.</p>
+        <p class="decision"><b>A* no compensa aquí, y se dice.</b> Un grafo de transacciones no tiene geometría natural, así que la heurística hay que fabricarla con un layout de fuerzas. Se calibra, se ejecuta sobre 30 pares y se comprueba empíricamente si encuentra el óptimo. El resultado honesto es que el coste de evaluar la heurística se come la ventaja: A* brilla en grafos con geometría genuina, no en estos.</p>
+      </div>
+      <div class="mod-fns">
+        <span class="eyebrow">Funciones</span>
+        <ul><li>camino_minimo</li><li>floyd_warshall_demo</li><li>heuristica_por_layout</li><li>diametro_doble_barrido</li><li>metricas_distancia</li><li>rastrear_flujo_fondos</li></ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- M6 -->
+  <article class="mod" id="m6">
+    <div class="mod-head"><span class="mod-num">M6</span><h3>Centralidad</h3><span class="pill a">Elliptic</span></div>
+    <div class="mod-body">
+      <div>
+        <p>Ocho centralidades en una sola tabla: degree, in/out-degree, betweenness, closeness, eigenvector, Katz, PageRank y HITS (hubs y autoridades). Agrupadas en tres familias conceptuales —volumen, posición y recursión— porque la diferencia entre ellas no es de precisión sino de <em>qué pregunta responden</em>.</p>
+        <p class="decision"><b>Dos patologías medidas, no advertidas.</b> Primera: el eigenvector se concentra casi por completo en una sola componente cuando el grafo está desconectado, así que comparar dos nodos de componentes distintas no significa nada. Segunda: se calcula la betweenness exacta sobre 1 200 nodos y se compara con la aproximación a distintos valores de <em>k</em>, reportando ρ de Spearman y solape del top-50. Para priorizar alertas la aproximación basta; para publicar un valor exacto, no.</p>
+        <p class="decision"><b>El solape del top-100 importa más que la correlación.</b> Dos métricas pueden correlacionar 0,9 sobre todos los nodos y coincidir en solo 30 de los 100 primeros — y en fraude solo se investigan los primeros.</p>
+      </div>
+      <div class="mod-fns">
+        <span class="eyebrow">Funciones</span>
+        <ul><li>katz_sparse</li><li>calcular_centralidades</li><li>comparar_centralidades</li></ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- M7 -->
+  <article class="mod" id="m7">
+    <div class="mod-head"><span class="mod-num">M7</span><h3>Análisis de comunidades</h3><span class="pill a">Elliptic</span></div>
+    <div class="mod-body">
+      <div>
+        <p>Louvain, Leiden, Girvan-Newman, Label Propagation e Infomap tras una API única que devuelve siempre la misma estructura. Comparación por modularidad, número de comunidades, singletons, tiempo y acuerdo mutuo medido con NMI.</p>
+        <p class="decision"><b>El límite de resolución no es teórico.</b> La modularidad no detecta comunidades con menos de √(2m) aristas: con 234 355 aristas, unas 680. Un anillo de fraude de diez cuentas queda <strong>por debajo del umbral de detección</strong> y se fusiona con un grupo mayor. De ahí que los detectores del M19 no se apoyen en comunidades.</p>
+        <p class="decision"><b>Se elimina una dependencia.</b> El original usaba <code>python-louvain</code>; se sustituye por <code>nx.community.louvain_communities</code>, integrado en NetworkX desde la 3.0.</p>
+      </div>
+      <div class="mod-fns">
+        <span class="eyebrow">Funciones</span>
+        <ul><li>detectar_comunidades</li><li>comparar_particiones</li><li>visualizar_comunidades</li></ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- M8 -->
+  <article class="mod" id="m8">
+    <div class="mod-head"><span class="mod-num">M8</span><h3>Motifs</h3><span class="pill a">Elliptic</span><span class="pill b">Banca</span></div>
+    <div class="mod-body">
+      <div>
+        <p>El censo completo de las 16 tríadas dirigidas mediante Batagelj-Mrvar, con la traducción de cada código a su lectura en flujo de fondos: <code>021D</code> dispersión, <code>021U</code> agregación, <code>021C</code> cadena, <code>030T</code> feed-forward loop y <code>030C</code> ciclo. Más detección directa de patrones fan-in / fan-out y enumeración de ciclos.</p>
+        <p class="decision"><b>Significancia frente a un modelo nulo.</b> Que un motif aparezca 8 000 veces no dice nada por sí solo. Se generan réplicas aleatorias con la <em>misma secuencia de grados</em> y se calcula el z-score: sin ese control, cualquier red con hubs parecería llena de estrellas «sobre-representadas» que son una consecuencia trivial de tener hubs.</p>
+        <p class="decision"><b>El motif encuentra candidatos; el atributo los filtra.</b> Un ciclo dirigido aparece por azar entre cuentas activas. Lo que delata el layering es que el importe apenas varía en cada salto —es el mismo dinero, menos comisión—, así que se filtra por coeficiente de variación. Ninguna de las dos señales basta por separado.</p>
+      </div>
+      <div class="mod-fns">
+        <span class="eyebrow">Funciones</span>
+        <ul><li>contar_motifs</li><li>significancia_motifs</li><li>detectar_patron_fan</li><li>detectar_ciclos</li><li>proyectar_transferencias</li></ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- M9 -->
+  <article class="mod" id="m9">
+    <div class="mod-head"><span class="mod-num">M9</span><h3>Clustering</h3><span class="pill a">Elliptic</span><span class="pill b">Banca</span></div>
+    <div class="mod-body">
+      <div>
+        <p>Coeficiente local, clustering medio y transitividad —que no son el mismo número y se confunden constantemente—, relación C(k) frente al grado, y comparación del clustering entre transacciones lícitas e ilícitas.</p>
+        <p class="decision"><b>Cierre triádico medido con tiempo real.</b> Se parte el grafo bancario por el percentil 60 de los timestamps, se enumeran las tríadas abiertas del pasado y se mide qué fracción se cierra en el futuro, contra una tasa base de pares sin vecinos comunes. Ese cociente es lo que da —o quita— legitimidad al M12: si fuera 1, los índices basados en vecinos comunes no serían mejores que el azar.</p>
+      </div>
+      <div class="mod-fns">
+        <span class="eyebrow">Funciones</span>
+        <ul><li>metricas_clustering</li><li>analizar_cierre_triadico</li></ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- M10 -->
+  <article class="mod" id="m10">
+    <div class="mod-head"><span class="mod-num">M10</span><h3>Redes temporales</h3><span class="pill a">Elliptic</span><span class="pill b">Banca</span></div>
+    <div class="mod-body">
+      <div>
+        <p>Snapshot graph frente a grafo dinámico continuo. Evolución de nueve métricas a lo largo de los 49 snapshots, y ciclo de vida de comunidades —aparición, persistencia, fusión, división, desaparición— emparejando particiones consecutivas por índice de Jaccard.</p>
+        <p class="decision"><b>El seguimiento de comunidades no se aplica a Elliptic, y se explica por qué.</b> Cada timestep tiene nodos completamente distintos, así que todas las comparaciones por Jaccard darían cero — no por ausencia de estructura, sino porque la intersección de conjuntos disjuntos es vacía por definición. Sobre Elliptic se sigue la evolución de propiedades agregadas; el ciclo de vida se demuestra sobre el grafo bancario, donde las cuentas persisten. Aplicar el segundo análisis al primero produciría una tabla de ceros presentada como hallazgo.</p>
+      </div>
+      <div class="mod-fns">
+        <span class="eyebrow">Funciones</span>
+        <ul><li>construir_snapshots</li><li>evolucion_metricas</li><li>snapshots_por_tiempo</li><li>seguir_comunidades</li></ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- M11 -->
+  <article class="mod" id="m11">
+    <div class="mod-head"><span class="mod-num">M11</span><h3>Ingeniería de features</h3><span class="pill a">Elliptic</span></div>
+    <div class="mod-body">
+      <div>
+        <p>Tres familias de features: topológicas (grado, PageRank, Katz, HITS, clustering, estadísticos del vecindario), de comunidad (identificador, tamaño, comunidades vecinas, ratio de frontera) y de vecindad etiquetada. Cierra uniendo las 165 features originales de Elliptic, que el notebook de partida cargaba y descartaba.</p>
+        <p class="decision"><b>La función te obliga a decidir qué se puede ver.</b> <code>features_de_vecindad</code> recibe un diccionario con las etiquetas <em>visibles</em>, no el conjunto completo. Pasar todas produce fuga; pasar solo las de entrenamiento produce la versión honesta. La función no decide por ti.</p>
+        <p class="decision"><b>Ratio de frontera.</b> La fracción de aristas de un nodo que salen de su comunidad. Un valor alto marca a un nodo puente: la firma del intermediario, que es exactamente el perfil que importa en blanqueo.</p>
+      </div>
+      <div class="mod-fns">
+        <span class="eyebrow">Funciones</span>
+        <ul><li>features_comunidad</li><li>construir_features_grafo</li><li>features_de_vecindad</li><li>distancia_a_fraude</li><li>unir_con_features_originales</li></ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- M12 -->
+  <article class="mod" id="m12">
+    <div class="mod-head"><span class="mod-num">M12</span><h3>Link prediction</h3><span class="pill a">Elliptic</span><span class="pill b">Banca</span></div>
+    <div class="mod-body">
+      <div>
+        <p>Vecinos comunes, Jaccard, Adamic-Adar, Resource Allocation y Preferential Attachment, con la aclaración de que este último es el raro del grupo: no mira vecinos comunes en absoluto y por eso es la línea base que hay que batir.</p>
+        <p class="decision"><b>El muestreo de negativos decide el resultado.</b> Con negativos aleatorios, en un grafo de densidad 5,6·10⁻⁶ casi todos los pares están lejísimos y cualquier método los separa: el AUC sale ~0,99 y no significa nada. La evaluación honesta usa <strong>negativos difíciles</strong> —pares a distancia 2, con vecino común pero sin arista—. El notebook mide las dos y muestra la diferencia.</p>
+        <p class="decision"><b>Y además, un split temporal real</b> sobre el grafo bancario, donde no hay ninguna posibilidad de fuga porque la información futura simplemente no está en el grafo de entrenamiento.</p>
+      </div>
+      <div class="mod-fns">
+        <span class="eyebrow">Funciones</span>
+        <ul><li>predecir_enlaces</li><li>muestrear_negativos</li><li>evaluar_link_prediction</li><li>evaluar_lp_temporal</li></ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- M13 -->
+  <article class="mod" id="m13">
+    <div class="mod-head"><span class="mod-num">M13</span><h3>Embeddings</h3><span class="pill a">Elliptic</span></div>
+    <div class="mod-body">
+      <div>
+        <p>Las dos familias: factorización matricial (SVD, HOPE con proximidad de Katz truncada) y recorridos aleatorios (DeepWalk, Node2Vec con caminatas sesgadas propias, LINE de primer orden con muestreo negativo escrito en NumPy). Visualización con PCA y t-SNE; UMAP documentado como alternativa.</p>
+        <p class="decision"><b>Node2Vec: <em>q</em> decide qué se aprende.</b> Con <em>q</em> &lt; 1 la caminata se aleja y captura comunidades; con <em>q</em> &gt; 1 se queda cerca y captura <strong>roles estructurales</strong>. En fraude importa: con <em>q</em> &gt; 1, dos cuentas mula de redes distintas y sin ninguna conexión acaban con vectores parecidos porque desempeñan el mismo papel. Son objetivos opuestos y el notebook entrena los dos.</p>
+        <p class="decision"><b>Sin gensim también funciona.</b> El respaldo es una factorización PPMI + SVD, y no es un apaño: Levy &amp; Goldberg demostraron que skip-gram con muestreo negativo factoriza implícitamente esa misma matriz.</p>
+        <p class="decision"><b>Evaluación cuantitativa, no una nube bonita.</b> Se entrena una regresión logística sobre cada embedding y se reporta el ROC-AUC por validación cruzada. El vector no ha visto ninguna etiqueta, así que lo que se mide es cuánta información sobre el fraude captura la estructura por sí sola.</p>
+      </div>
+      <div class="mod-fns">
+        <span class="eyebrow">Funciones</span>
+        <ul><li>embeddings_svd</li><li>embeddings_hope</li><li>random_walks</li><li>entrenar_word2vec</li><li>embeddings_line</li><li>evaluar_embeddings</li><li>visualizar_embeddings</li></ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- M14 -->
+  <article class="mod" id="m14">
+    <div class="mod-head"><span class="mod-num">M14</span><h3>Detección de anomalías</h3><span class="pill a">Elliptic</span></div>
+    <div class="mod-body">
+      <div>
+        <p>OddBall implementado tal cual lo define el paper —features del egonet, ajuste de ley de potencias y score por desviación de la recta, sin un solo hiperparámetro—, Isolation Forest sobre los embeddings del M13, autoencoder denso y una versión compacta de DOMINANT con codificador GCN y doble decodificador. ONE queda documentado con su referencia.</p>
+        <p class="decision"><b>Anomalía no es fraude.</b> Un nodo raro puede ser un exchange legítimo, un error de datos o un cliente atípico. Estos métodos generan candidatos a investigar, no veredictos.</p>
+        <p class="decision"><b>Dos controles obligatorios en la evaluación.</b> Un detector <em>aleatorio</em>, que debe salir clavado en la tasa base —si no, la evaluación está mal—, y el <em>grado</em> como línea base honesta: ordenar por grado no cuesta nada, y todo método que no lo supere no justifica su complejidad. El lift sobre la tasa base es lo que decide si el sistema se despliega.</p>
+      </div>
+      <div class="mod-fns">
+        <span class="eyebrow">Funciones</span>
+        <ul><li>oddball</li><li>isolation_forest_embeddings</li><li>normalizar_adyacencia</li><li>sparse_a_torch</li><li>autoencoder_anomalias</li><li>dominant_simplificado</li><li>ranking_anomalias</li></ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- M15 -->
+  <article class="mod" id="m15">
+    <div class="mod-head"><span class="mod-num">M15</span><h3>Graph Machine Learning</h3><span class="pill a">Elliptic</span></div>
+    <div class="mod-body">
+      <div>
+        <p>Las cuatro tareas: clasificación de nodos, de aristas y de grafos (redes ego), más link prediction que remite al M12. Cuatro conjuntos de features comparados en igualdad de condiciones: solo grafo, solo locales, locales + agregadas, y todo junto.</p>
+        <p class="decision"><b>Protocolo estándar de Elliptic.</b> Split temporal train <code>t ≤ 34</code> / test <code>t ≥ 35</code>, métricas sobre la clase ilícita, accuracy prohibida como métrica única. Se incluye a propósito una línea base «todo lícito» para hacer visible por qué: consigue accuracy alta y F1 cero.</p>
+        <p class="decision"><b>El desglose temporal es el resultado.</b> Un F1 agregado sobre todo el test oculta que el modelo se desploma tras el cierre de mercado del timestep 43. El gráfico timestep a timestep lo hace evidente, y esa es la métrica que describe cómo envejece un modelo de fraude en producción.</p>
+      </div>
+      <div class="mod-fns">
+        <span class="eyebrow">Funciones</span>
+        <ul><li>evaluar_modelo</li><li>split_temporal</li><li>features_arista</li><li>descriptores_grafo</li></ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- M16 -->
+  <article class="mod" id="m16">
+    <div class="mod-head"><span class="mod-num">M16</span><h3>Graph Neural Networks</h3><span class="pill a">Elliptic</span><span class="pill b">Banca</span></div>
+    <div class="mod-body">
+      <div>
+        <p>GCN, GraphSAGE, GAT, GIN y RGCN implementados en <strong>PyTorch puro sobre matrices dispersas</strong>, sin <code>torch-geometric</code> ni <code>DGL</code>. Son unas 120 líneas y hacen visible que una GNN no es magia: es una multiplicación dispersa seguida de una capa lineal. El Graph Transformer se comenta en el M23.</p>
+        <p class="decision"><b>Por qué GraphSAGE es el que se usa en producción.</b> GCN es transductivo —la normalización depende de la adyacencia completa, así que un nodo nuevo obliga a recalcular—. GraphSAGE es inductivo: aprende una función de agregación aplicable a cualquier vecindario, incluido el de una cuenta abierta hace cinco minutos.</p>
+        <p class="decision"><b>Un resultado que no se maquilla.</b> En Elliptic, Random Forest sobre las features tabulares suele igualar o superar a las GNN. Está documentado en la literatura y las razones son concretas: las 72 features agregadas ya son una capa de agregación de vecindario, el grafo son 49 componentes de diámetro pequeño, y 46 564 etiquetas con 10 % de positivos es poco para una red neuronal y mucho para un ensamble de árboles.</p>
+      </div>
+      <div class="mod-fns">
+        <span class="eyebrow">Funciones y clases</span>
+        <ul><li>preparar_tensores_elliptic</li><li>CapaGCN</li><li>CapaSAGE</li><li>CapaGAT</li><li>CapaGIN</li><li>CapaRGCN</li><li>RedGNN · RedRGCN</li><li>entrenar_gnn</li><li>preparar_rgcn_banco</li></ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- M17 -->
+  <article class="mod" id="m17">
+    <div class="mod-head"><span class="mod-num">M17</span><h3>Visualización</h3><span class="pill a">Elliptic</span><span class="pill b">Banca</span></div>
+    <div class="mod-body">
+      <div>
+        <p>Seis layouts comparados sobre el mismo grafo con su tiempo de cálculo, incluido <code>random</code> como control: si tu gráfico se parece a ese, el layout no está aportando nada. Vistas interactivas con Plotly y PyVis, y exportadores a GEXF (Gephi), GraphML y JSON de Cytoscape.</p>
+        <p class="decision"><b>Por encima de unos miles de nodos, no dibujes el grafo.</b> El resultado es una mancha sin información. Las alternativas que sí funcionan: agregar (dibujar el grafo de comunidades, que reduce 203 769 nodos a unos 300 y conserva la estructura de alto nivel), filtrar, muestrear, o directamente no dibujar — a menudo una tabla ordenada por centralidad informa más.</p>
+        <p class="decision"><b>El error más común al exportar</b> es un <code>None</code> en un atributo: GEXF y GraphML no lo admiten y fallan con un mensaje poco claro. <code>limpiar_para_exportar</code> lo resuelve, junto con los tipos de NumPy, que tampoco se serializan.</p>
+      </div>
+      <div class="mod-fns">
+        <span class="eyebrow">Funciones</span>
+        <ul><li>calcular_layout</li><li>dibujar_grafo</li><li>grafo_plotly</li><li>grafo_pyvis</li><li>limpiar_para_exportar</li><li>exportar_grafo</li><li>grafo_de_comunidades</li></ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- M18 -->
+  <article class="mod" id="m18">
+    <div class="mod-head"><span class="mod-num">M18</span><h3>Grafos para fraude bancario</h3><span class="pill b">Banca</span></div>
+    <div class="mod-body">
+      <div>
+        <p>Catálogo formal de las doce entidades y las nueve relaciones, con la justificación de por qué cada una es un nodo y no un atributo. Estadísticas desagregadas por tipo, conteo de meta-caminos y proyecciones bipartitas.</p>
+        <p class="decision"><b>El «grado medio» global no significa nada en un grafo heterogéneo.</b> Mezcla el grado de un cliente, que tiene decenas de vínculos, con el de una compra, que siempre tiene exactamente dos. Hay que desagregar por tipo o no medir.</p>
+        <p class="decision"><b>El meta-camino es la unidad semántica de consulta.</b> <code>Cliente -posee-&gt; Tarjeta -realiza-&gt; Compra -en-&gt; Comercio</code> define una relación con significado explícito, y es también lo que aprenden implícitamente HAN y HGT.</p>
+      </div>
+      <div class="mod-fns">
+        <span class="eyebrow">Funciones</span>
+        <ul><li>estadisticas_por_tipo</li><li>contar_metapath</li><li>proyeccion_por_metapath</li></ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- M19 -->
+  <article class="mod" id="m19">
+    <div class="mod-head"><span class="mod-num">M19</span><h3>Casos de uso</h3><span class="pill b">Banca</span></div>
+    <div class="mod-body">
+      <div>
+        <p>Seis detectores basados en reglas de grafo, cada uno evaluado contra el ground truth inyectado con precisión, recall y F1 restringidos a su tipo de entidad. Money mule, layering AML, device sharing, identidad sintética, account takeover y card testing.</p>
+        <p class="decision"><b>Los detectores útiles son conjuntivos.</b> El de ATO exige tres cosas simultáneas: dispositivo o IP nuevos, transferencia por encima del percentil 95, y menos de 48 horas entre ambas. Ninguna es sospechosa por separado. Cuando el recall es alto y la precisión baja, la solución no es endurecer el umbral —eso hunde el recall— sino añadir condiciones.</p>
+        <p class="decision"><b>Friendly fraud y chargeback no tienen detector, y se explica por qué.</b> No tienen firma topológica en el grafo de transacciones: su señal está en el historial de disputas, que no se modela. Añadir un nodo <code>Disputa</code> la haría visible. Lo que no está en el modelo no se puede detectar.</p>
+        <p class="decision"><b>Estas reglas no usan machine learning, y siguen siendo la primera línea</b> porque son explicables: un investigador entiende «esta cuenta recibió de 14 orígenes y reenvió el 93 % en dos días» mucho mejor que «la red le dio 0,87».</p>
+      </div>
+      <div class="mod-fns">
+        <span class="eyebrow">Funciones</span>
+        <ul><li>detectar_money_mule</li><li>detectar_layering_aml</li><li>detectar_device_sharing</li><li>detectar_identidad_sintetica</li><li>detectar_account_takeover</li><li>detectar_card_testing</li><li>evaluar_detectores</li></ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- M20 -->
+  <article class="mod" id="m20">
+    <div class="mod-head"><span class="mod-num">M20</span><h3>Bases de datos de grafos</h3><span class="pill b">Banca</span></div>
+    <div class="mod-body">
+      <div>
+        <p>Comparativa de Neo4j, TigerGraph, Neptune, ArangoDB, JanusGraph y Memgraph por modelo, lenguaje, licencia, escala y punto débil, con criterios concretos de elección. Exportador a los CSV con las cabeceras que espera <code>neo4j-admin import</code>, más las sentencias de creación de índices.</p>
+        <p class="decision"><b>La arquitectura correcta es híbrida.</b> La base de datos de grafos responde preguntas <em>locales</em> —el vecindario de una alerta— en milisegundos. La analítica <em>global</em> —PageRank sobre 500 millones de nodos, comunidades— se hace en batch con Spark y sus resultados se escriben de vuelta como propiedades de los nodos. Hacer PageRank global dentro de la base transaccional es el error clásico.</p>
+      </div>
+      <div class="mod-fns">
+        <span class="eyebrow">Funciones</span>
+        <ul><li>exportar_neo4j_csv</li></ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- M21 -->
+  <article class="mod" id="m21">
+    <div class="mod-head"><span class="mod-num">M21</span><h3>Lenguajes de consulta</h3><span class="pill b">Banca</span></div>
+    <div class="mod-body">
+      <div>
+        <p>La misma consulta —«encuentra cuentas mula»— escrita en Cypher, Gremlin y SPARQL, con la comparación por legibilidad, control del plan de ejecución, agregaciones, federación y portabilidad. Además, generación de sentencias <code>CREATE</code> pegables en Neo4j y serialización a Turtle para cualquier endpoint SPARQL.</p>
+        <p class="decision"><b>Si empiezas hoy, empieza por Cypher.</b> GQL, el estándar ISO publicado en 2024, es esencialmente Cypher elevado a norma internacional.</p>
+      </div>
+      <div class="mod-fns">
+        <span class="eyebrow">Funciones</span>
+        <ul><li>generar_cypher</li><li>exportar_rdf_turtle</li></ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- M22 -->
+  <article class="mod" id="m22">
+    <div class="mod-head"><span class="mod-num">M22</span><h3>Escalabilidad</h3><span class="pill a">Elliptic</span></div>
+    <div class="mod-body">
+      <div>
+        <p>Benchmark de NetworkX contra igraph sobre PageRank, componentes y grados, con el coste de conversión cronometrado aparte. Reimplementación de PageRank sobre matrices dispersas y comparación de resultados hasta la precisión numérica. Código de referencia para Spark GraphFrames y GraphX, incluida la búsqueda de motifs con <code>g.find()</code> y la propagación de riesgo con Pregel.</p>
+        <p class="decision"><b>Cuándo dar el salto a Spark.</b> No por el número de nodos, sino por tres señales: el grafo no cabe en RAM (~200–400 bytes por arista en NetworkX, es decir ~30 GB para 100 millones de aristas), los datos ya viven en un data lake, o hay que recalcular métricas globales de forma periódica. Y cuándo no: si la pregunta es local, Spark es la herramienta equivocada por grande que sea el grafo.</p>
+      </div>
+      <div class="mod-fns">
+        <span class="eyebrow">Funciones</span>
+        <ul><li>benchmark_libreria</li><li>pagerank_disperso</li></ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- M23 -->
+  <article class="mod" id="m23">
+    <div class="mod-head"><span class="mod-num">M23</span><h3>Investigación (estado del arte)</h3><span class="pill b">Banca</span></div>
+    <div class="mod-body">
+      <div>
+        <p>Siete líneas activas: Temporal GNN (TGAT, TGN, JODIE), dynamic graph embeddings, Graph Transformers (Graphormer, SAN, GraphGPS), Heterogeneous GNN (HAN, HGT), Knowledge Graph embeddings, Explainable GNN (GNNExplainer, PGExplainer, SubgraphX) y Graph Foundation Models. Cierra con TransE implementado y evaluado sobre el grafo bancario.</p>
+        <p class="decision"><b>Por qué las TGNN importan aquí.</b> El orden de las operaciones <em>es</em> la señal: diez transferencias entrantes seguidas de una saliente es una mula; las mismas once operaciones en otro orden no son nada. Un modelo estático no puede distinguirlas.</p>
+        <p class="decision"><b>TransE agrupa las entidades por tipo sin que nadie se lo diga.</b> El tipo nunca entra en el modelo, solo las tripletas. Que la estructura de relaciones baste para inducirlo es exactamente lo que promete un knowledge graph embedding — y convierte esos vectores en features para un clasificador, cerrando el círculo con M13 y M15.</p>
+      </div>
+      <div class="mod-fns">
+        <span class="eyebrow">Funciones</span>
+        <ul><li>extraer_tripletas</li><li>transe</li><li>evaluar_transe</li></ul>
+      </div>
+    </div>
+  </article>
+
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════ -->
+<section id="catalogo" class="block">
+  <span class="eyebrow">Referencia</span>
+  <h2>Catálogo de funciones</h2>
+  <p>
+    118 funciones y clases definidas en el notebook. Todas llevan docstring con el contrato de
+    entrada y salida, y las que tienen coste no trivial declaran su complejidad.
+  </p>
+
+  <div class="filterbar">
+    <input type="search" id="q" placeholder="Filtrar por nombre, módulo o descripción…" aria-label="Filtrar el catálogo de funciones">
+    <span class="count" id="cnt"></span>
+  </div>
+
+  <div class="tw">
+    <table id="cat">
+      <thead><tr><th style="width:4rem">Módulo</th><th style="width:15rem">Función</th><th>Qué hace</th></tr></thead>
+      <tbody>
+        <tr><td>Base</td><td class="fn">titulo</td><td>Imprime un encabezado legible en la salida de la celda.</td></tr>
+        <tr><td>Base</td><td class="fn">cronometrar</td><td>Ejecuta una función midiendo el tiempo de pared y devuelve <code>(resultado, segundos)</code>.</td></tr>
+        <tr><td>Base</td><td class="fn">tabla_resumen</td><td>Convierte un diccionario de métricas en un DataFrame de una columna.</td></tr>
+        <tr><td>Base</td><td class="fn">formatear</td><td>Formato numérico legible: miles con separador, notación científica si es diminuto.</td></tr>
+        <tr><td>Base</td><td class="fn">top_n</td><td>Top-N filas de un DataFrame ordenadas por una columna.</td></tr>
+        <tr><td>Base</td><td class="fn">localizar_csv</td><td>Busca recursivamente los tres CSV de Elliptic bajo un directorio.</td></tr>
+        <tr><td>Base</td><td class="fn">normalizar_features</td><td>Renombra las 167 columnas anónimas a <code>txId</code>, <code>timestep</code>, <code>local_*</code> y <code>agg_*</code>.</td></tr>
+        <tr><td>Base</td><td class="fn">cargar_datos</td><td>Carga los tres CSV vengan de donde vengan: local primero, kagglehub después.</td></tr>
+        <tr><td>Base</td><td class="fn">perfilar_datos</td><td>Audita integridad referencial, cardinalidad y balance de clases del dataset tabular.</td></tr>
+
+        <tr><td>M0</td><td class="fn">grafos_ejemplo</td><td>Construye el ejemplar mínimo de cada familia de grafos.</td></tr>
+        <tr><td>M0</td><td class="fn">propiedades_grafo</td><td>Juego completo de propiedades estructurales, válido para dirigidos y no dirigidos.</td></tr>
+        <tr><td>M0</td><td class="fn">dibujar_familias</td><td>Dibuja cada grafo de ejemplo con la codificación visual propia de su familia.</td></tr>
+        <tr><td>M0</td><td class="fn">comparar_grafo_vs_relacional</td><td>Compara empíricamente el coste de una consulta de k saltos en ambos modelos.</td></tr>
+
+        <tr><td>M1</td><td class="fn">tabular_a_grafo</td><td>Convierte un DataFrame en grafo siguiendo una lista de especificaciones de relación.</td></tr>
+        <tr><td>M1</td><td class="fn">build_banking_graph</td><td>Genera el grafo bancario heterogéneo con seis tipologías de fraude y su ground truth.</td></tr>
+        <tr><td>M1</td><td class="fn">a_property_graph</td><td>Vista Property Graph de un nodo: etiqueta, propiedades y relaciones salientes.</td></tr>
+        <tr><td>M1</td><td class="fn">a_tripletas_rdf</td><td>Traduce un fragmento del Property Graph a tripletas RDF.</td></tr>
+        <tr><td>M1</td><td class="fn">tripletas_a_ntriples</td><td>Serializa tripletas al formato N-Triples.</td></tr>
+
+        <tr><td>M2</td><td class="fn">construir_grafo_elliptic</td><td>Construye el DiGraph de transacciones desde los tres DataFrames.</td></tr>
+        <tr><td>M2</td><td class="fn">tabla_nodos</td><td>Tabla maestra de nodos alineada con el orden de <code>G.nodes()</code>.</td></tr>
+        <tr><td>M2</td><td class="fn">subgrafo_timestep</td><td>Subgrafo inducido por todos los nodos de un timestep.</td></tr>
+        <tr><td>M2</td><td class="fn">subgrafo_ego</td><td>Red ego de radio configurable: la unidad de análisis de una investigación.</td></tr>
+        <tr><td>M2</td><td class="fn">muestrear_subgrafo</td><td>Cuatro estrategias de muestreo (BFS, aleatorio, aristas, grado) con sus sesgos.</td></tr>
+
+        <tr><td>M3</td><td class="fn">estadisticas_basicas</td><td>Panel de métricas descriptivas: densidad, grados, self-loops, DAG, reciprocidad, asortatividad.</td></tr>
+        <tr><td>M3</td><td class="fn">tabla_grados</td><td>DataFrame con los tres grados por nodo, listo para enriquecerse.</td></tr>
+        <tr><td>M3</td><td class="fn">detectar_hubs</td><td>Hubs por top-N absoluto y por criterio estadístico de σ.</td></tr>
+        <tr><td>M3</td><td class="fn">ajustar_ley_potencias</td><td>Estima γ por regresión log-log y por máxima verosimilitud (Clauset et al.).</td></tr>
+        <tr><td>M3</td><td class="fn">distribucion_grados</td><td>Cuatro vistas de la distribución: histograma, log-log, CCDF y dispersión in/out.</td></tr>
+
+        <tr><td>M4</td><td class="fn">analizar_componentes</td><td>Componentes débiles y fuertes, LCC y detección de componente gigante.</td></tr>
+        <tr><td>M4</td><td class="fn">verificar_componentes_vs_timesteps</td><td>Contrasta tres afirmaciones independientes sobre la biyección componente ↔ timestep.</td></tr>
+        <tr><td>M4</td><td class="fn">proyectar_clientes_por_recurso</td><td>Red cliente–cliente por dispositivo, IP, teléfono o dirección compartidos.</td></tr>
+        <tr><td>M4</td><td class="fn">anillos_por_componente</td><td>Componentes de la proyección con un mínimo de clientes: anillos candidatos.</td></tr>
+
+        <tr><td>M5</td><td class="fn">camino_minimo</td><td>API única para BFS, Dijkstra, Bellman-Ford y A*; nunca lanza excepción.</td></tr>
+        <tr><td>M5</td><td class="fn">floyd_warshall_demo</td><td>Matriz completa de distancias con su coste medido y extrapolado.</td></tr>
+        <tr><td>M5</td><td class="fn">heuristica_por_layout</td><td>Heurística euclídea para A* construida desde posiciones de layout de fuerzas.</td></tr>
+        <tr><td>M5</td><td class="fn">diametro_doble_barrido</td><td>Cota inferior del diámetro en O(m) por repetición.</td></tr>
+        <tr><td>M5</td><td class="fn">metricas_distancia</td><td>Diámetro, radio, excentricidad, centro y periferia, en versión exacta o aproximada.</td></tr>
+        <tr><td>M5</td><td class="fn">rastrear_flujo_fondos</td><td>Sigue el dinero hacia delante o hacia atrás, nivel a nivel, contando ilícitos.</td></tr>
+
+        <tr><td>M6</td><td class="fn">katz_sparse</td><td>Katz por iteración sobre matriz dispersa, evitando la matriz densa n×n.</td></tr>
+        <tr><td>M6</td><td class="fn">calcular_centralidades</td><td>Ocho centralidades en un DataFrame, con control explícito del coste de cada una.</td></tr>
+        <tr><td>M6</td><td class="fn">comparar_centralidades</td><td>Correlación de Spearman entre centralidades y solape de sus top-100.</td></tr>
+
+        <tr><td>M7</td><td class="fn">detectar_comunidades</td><td>Louvain, Leiden, Label Propagation, greedy, Girvan-Newman e Infomap tras una API única.</td></tr>
+        <tr><td>M7</td><td class="fn">comparar_particiones</td><td>Calidad, tamaño y acuerdo mutuo (NMI) entre varias particiones del mismo grafo.</td></tr>
+        <tr><td>M7</td><td class="fn">visualizar_comunidades</td><td>Colorea las comunidades mayores y agrupa el resto en gris; muestrea si hace falta.</td></tr>
+
+        <tr><td>M8</td><td class="fn">contar_motifs</td><td>Censo de las 16 tríadas dirigidas por Batagelj-Mrvar, con su lectura en fraude.</td></tr>
+        <tr><td>M8</td><td class="fn">significancia_motifs</td><td>z-score frente a réplicas aleatorias con idéntica secuencia de grados.</td></tr>
+        <tr><td>M8</td><td class="fn">detectar_patron_fan</td><td>Fan-out (dispersión) y fan-in (agregación) con ratio de vecinos terminales.</td></tr>
+        <tr><td>M8</td><td class="fn">detectar_ciclos</td><td>Ciclos dirigidos simples acotados en longitud y en número de resultados.</td></tr>
+        <tr><td>M8</td><td class="fn">proyectar_transferencias</td><td>Colapsa la transferencia reificada en una arista cuenta → cuenta.</td></tr>
+
+        <tr><td>M9</td><td class="fn">metricas_clustering</td><td>Clustering medio, transitividad y distribución de coeficientes locales.</td></tr>
+        <tr><td>M9</td><td class="fn">analizar_cierre_triadico</td><td>Mide el cierre triádico con tiempo real y lo contrasta con una tasa base.</td></tr>
+
+        <tr><td>M10</td><td class="fn">construir_snapshots</td><td>Parte el grafo en subgrafos, uno por valor de una columna.</td></tr>
+        <tr><td>M10</td><td class="fn">evolucion_metricas</td><td>Serie temporal de nueve métricas estructurales, una fila por snapshot.</td></tr>
+        <tr><td>M10</td><td class="fn">snapshots_por_tiempo</td><td>Corta un grafo con timestamps en ventanas de igual duración.</td></tr>
+        <tr><td>M10</td><td class="fn">seguir_comunidades</td><td>Clasifica el ciclo de vida en aparición, persistencia, fusión, división y desaparición.</td></tr>
+
+        <tr><td>M11</td><td class="fn">features_comunidad</td><td>Identificador, tamaño, comunidades vecinas y ratio de frontera.</td></tr>
+        <tr><td>M11</td><td class="fn">construir_features_grafo</td><td>Ensambla la tabla de features topológicas y de comunidad de todos los nodos.</td></tr>
+        <tr><td>M11</td><td class="fn">features_de_vecindad</td><td>Features de etiquetas de vecinos; obliga a declarar qué etiquetas son visibles.</td></tr>
+        <tr><td>M11</td><td class="fn">distancia_a_fraude</td><td>BFS multi-fuente en una sola pasada hasta el fraude conocido más cercano.</td></tr>
+        <tr><td>M11</td><td class="fn">unir_con_features_originales</td><td>Incorpora las 165 features de Elliptic que el notebook original descartaba.</td></tr>
+
+        <tr><td>M12</td><td class="fn">predecir_enlaces</td><td>Puntúa pares con los cinco índices clásicos de link prediction.</td></tr>
+        <tr><td>M12</td><td class="fn">muestrear_negativos</td><td>Negativos aleatorios o difíciles (a distancia 2); la elección decide el resultado.</td></tr>
+        <tr><td>M12</td><td class="fn">evaluar_link_prediction</td><td>Oculta aristas y mide ROC-AUC, average precision y precision@K.</td></tr>
+        <tr><td>M12</td><td class="fn">evaluar_lp_temporal</td><td>Split temporal real: entrena con el pasado y predice el futuro.</td></tr>
+
+        <tr><td>M13</td><td class="fn">embeddings_svd</td><td>SVD truncada de la adyacencia dispersa; corrige el <code>asfptype</code> del original.</td></tr>
+        <tr><td>M13</td><td class="fn">embeddings_hope</td><td>HOPE con proximidad de Katz truncada, preservando la asimetría del digrafo.</td></tr>
+        <tr><td>M13</td><td class="fn">random_walks</td><td>Caminatas sesgadas al estilo Node2Vec con parámetros p y q.</td></tr>
+        <tr><td>M13</td><td class="fn">entrenar_word2vec</td><td>Skip-gram con gensim; respaldo a factorización PPMI + SVD sin dependencias.</td></tr>
+        <tr><td>M13</td><td class="fn">embeddings_line</td><td>LINE de primer orden con muestreo negativo, vectorizado en NumPy.</td></tr>
+        <tr><td>M13</td><td class="fn">evaluar_embeddings</td><td>ROC-AUC por validación cruzada sobre una tarea posterior común.</td></tr>
+        <tr><td>M13</td><td class="fn">visualizar_embeddings</td><td>Proyección a 2D con PCA o t-SNE, coloreada por clase.</td></tr>
+
+        <tr><td>M14</td><td class="fn">oddball</td><td>Anomalías estructurales por desviación de la ley de potencias del egonet.</td></tr>
+        <tr><td>M14</td><td class="fn">isolation_forest_embeddings</td><td>Puntuación de anomalía sobre una matriz de vectores.</td></tr>
+        <tr><td>M14</td><td class="fn">normalizar_adyacencia</td><td>Normalización simétrica de Kipf &amp; Welling; la reutiliza todo el M16.</td></tr>
+        <tr><td>M14</td><td class="fn">sparse_a_torch</td><td>Convierte una matriz dispersa de SciPy en tensor disperso de PyTorch.</td></tr>
+        <tr><td>M14</td><td class="fn">autoencoder_anomalias</td><td>Error de reconstrucción de un autoencoder denso como score.</td></tr>
+        <tr><td>M14</td><td class="fn">dominant_simplificado</td><td>Codificador GCN + decodificadores de estructura y atributos.</td></tr>
+        <tr><td>M14</td><td class="fn">ranking_anomalias</td><td>Precision@K y lift sobre la tasa base para cada detector.</td></tr>
+
+        <tr><td>M15</td><td class="fn">evaluar_modelo</td><td>Métricas de la clase minoritaria, con la accuracy trivial como contraste.</td></tr>
+        <tr><td>M15</td><td class="fn">split_temporal</td><td>División por timestep según el protocolo estándar de Elliptic.</td></tr>
+        <tr><td>M15</td><td class="fn">features_arista</td><td>Combina las features de los extremos con cuatro operadores binarios.</td></tr>
+        <tr><td>M15</td><td class="fn">descriptores_grafo</td><td>Vector de características de un grafo completo, para clasificar redes ego.</td></tr>
+
+        <tr><td>M16</td><td class="fn">preparar_tensores_elliptic</td><td>Tensores para las GNN, con verificación explícita del alineamiento nodo ↔ fila.</td></tr>
+        <tr><td>M16</td><td class="fn">CapaGCN</td><td>Convolución de grafo: <code>h' = Â·(hW)</code>.</td></tr>
+        <tr><td>M16</td><td class="fn">CapaSAGE</td><td>Pesos separados para la representación propia y la agregada de vecinos.</td></tr>
+        <tr><td>M16</td><td class="fn">CapaGAT</td><td>Atención sobre aristas con softmax por destino vía <code>index_add_</code>.</td></tr>
+        <tr><td>M16</td><td class="fn">CapaGIN</td><td>Agregación por suma más MLP: poder discriminativo máximo.</td></tr>
+        <tr><td>M16</td><td class="fn">CapaRGCN</td><td>Una matriz de pesos por tipo de relación, para grafos heterogéneos.</td></tr>
+        <tr><td>M16</td><td class="fn">RedGNN</td><td>Envoltorio de dos capas con dropout, común a las cuatro arquitecturas homogéneas.</td></tr>
+        <tr><td>M16</td><td class="fn">RedRGCN</td><td>Red de dos capas RGCN para el grafo bancario heterogéneo.</td></tr>
+        <tr><td>M16</td><td class="fn">entrenar_gnn</td><td>Entrenamiento a grafo completo con pesos de clase y evaluación temporal.</td></tr>
+        <tr><td>M16</td><td class="fn">preparar_rgcn_banco</td><td>Una matriz de adyacencia por relación, más features one-hot de tipo.</td></tr>
+
+        <tr><td>M17</td><td class="fn">calcular_layout</td><td>Seis layouts tras una firma única.</td></tr>
+        <tr><td>M17</td><td class="fn">dibujar_grafo</td><td>Codificación visual por atributos de nodo; devuelve las posiciones para reutilizarlas.</td></tr>
+        <tr><td>M17</td><td class="fn">grafo_plotly</td><td>Grafo interactivo con las aristas en una sola traza, por rendimiento.</td></tr>
+        <tr><td>M17</td><td class="fn">grafo_pyvis</td><td>HTML autónomo con física interactiva, para compartir un caso.</td></tr>
+        <tr><td>M17</td><td class="fn">limpiar_para_exportar</td><td>Convierte <code>None</code> y tipos de NumPy, que rompen GEXF y GraphML.</td></tr>
+        <tr><td>M17</td><td class="fn">exportar_grafo</td><td>Exporta a GEXF, GraphML y JSON de Cytoscape.</td></tr>
+        <tr><td>M17</td><td class="fn">grafo_de_comunidades</td><td>Colapsa cada comunidad en un nodo: 203 769 nodos caben en unos 300.</td></tr>
+
+        <tr><td>M18</td><td class="fn">estadisticas_por_tipo</td><td>Métricas desagregadas por tipo de nodo y de relación.</td></tr>
+        <tr><td>M18</td><td class="fn">contar_metapath</td><td>Enumera instancias de un meta-camino, con límite de expansión.</td></tr>
+        <tr><td>M18</td><td class="fn">proyeccion_por_metapath</td><td>Grafo bipartito entre los extremos de un meta-camino, ponderado por instancias.</td></tr>
+
+        <tr><td>M19</td><td class="fn">detectar_money_mule</td><td>Fan-in + reenvío + inmediatez, con ventana deslizante sobre los timestamps.</td></tr>
+        <tr><td>M19</td><td class="fn">detectar_layering_aml</td><td>Ciclos con coeficiente de variación de importes bajo y orden temporal.</td></tr>
+        <tr><td>M19</td><td class="fn">detectar_device_sharing</td><td>Recursos técnicos con un número anómalo de clientes distintos.</td></tr>
+        <tr><td>M19</td><td class="fn">detectar_identidad_sintetica</td><td>Teléfonos y direcciones compartidos entre titulares distintos.</td></tr>
+        <tr><td>M19</td><td class="fn">detectar_account_takeover</td><td>Tres condiciones simultáneas: recurso nuevo, importe extremo y ventana corta.</td></tr>
+        <tr><td>M19</td><td class="fn">detectar_card_testing</td><td>Ráfaga de micro-compras en muchos comercios dentro de una ventana de horas.</td></tr>
+        <tr><td>M19</td><td class="fn">evaluar_detectores</td><td>Precisión, recall y F1 restringidos al tipo de entidad que señala cada detector.</td></tr>
+
+        <tr><td>M20</td><td class="fn">exportar_neo4j_csv</td><td>CSV con cabeceras <code>:ID</code>/<code>:LABEL</code>/<code>:TYPE</code>, comando de importación e índices.</td></tr>
+
+        <tr><td>M21</td><td class="fn">generar_cypher</td><td>Sentencias <code>CREATE</code> con valores escapados y tipados, pegables en Neo4j.</td></tr>
+        <tr><td>M21</td><td class="fn">exportar_rdf_turtle</td><td>Serializa un fragmento del grafo a Turtle para un endpoint SPARQL.</td></tr>
+
+        <tr><td>M22</td><td class="fn">benchmark_libreria</td><td>Cronometra las mismas operaciones en NetworkX e igraph, con la conversión aparte.</td></tr>
+        <tr><td>M22</td><td class="fn">pagerank_disperso</td><td>PageRank sobre matrices dispersas, con redistribución de la masa de los nodos colgantes.</td></tr>
+
+        <tr><td>M23</td><td class="fn">extraer_tripletas</td><td>Convierte el Property Graph en tripletas (cabeza, relación, cola).</td></tr>
+        <tr><td>M23</td><td class="fn">transe</td><td>TransE con pérdida de ranking por margen y gradientes derivados a mano.</td></tr>
+        <tr><td>M23</td><td class="fn">evaluar_transe</td><td>Mean rank, MRR y Hits@K sobre tripletas retenidas.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════ -->
+<section id="limites" class="block">
+  <span class="eyebrow">Honestidad</span>
+  <h2>Limitaciones y siguientes pasos</h2>
+
+  <h3>Lo que este trabajo no puede demostrar</h3>
+  <ul>
+    <li><strong>Rastreo de fondos a largo plazo.</strong> Ninguna arista de Elliptic cruza timesteps, así que no existe ningún camino de más de dos semanas. Es una limitación del dataset, no del método.</li>
+    <li><strong>Layering a nivel de transacción.</strong> El grafo es un DAG: no hay ciclos que encontrar. Solo se detecta a nivel de entidad, y por eso el grafo bancario existe.</li>
+    <li><strong>Features de vecindad etiquetada.</strong> Correctamente implementadas, son siempre cero en test bajo el split temporal. La implementación es válida y sí funciona en grafos donde las relaciones cruzan el tiempo.</li>
+    <li><strong>Realismo del ground truth sintético.</strong> Los patrones inyectados en el grafo B son más limpios que los reales, así que la precisión y el recall del M19 son optimistas. Su valor está en la comparación relativa y en verificar que cada detector encuentra lo que dice buscar.</li>
+    <li><strong>Métricas de los modelos.</strong> No se han ejecutado en el entorno de desarrollo. Los valores que este documento cita son los de la ejecución previa del notebook original o propiedades estructurales verificables del dataset.</li>
+  </ul>
+
+  <h3>Qué haría falta para llevarlo a producción</h3>
+  <div class="grid2">
+    <div class="card">
+      <h4>Un grafo cuyas relaciones crucen el tiempo</h4>
+      <p>Es la limitación de fondo de Elliptic y la razón por la que las GNN no lucen aquí. Un grafo bancario real la resuelve por construcción: un cliente de hoy transfiere a una cuenta señalada hace seis meses.</p>
+    </div>
+    <div class="card">
+      <h4>Etiquetas con su fecha de disponibilidad</h4>
+      <p>No basta con saber que algo fue fraude: hay que saber <em>cuándo se supo</em>. Sin eso, toda la ingeniería de features vuelve a tener fuga aunque el split sea temporal.</p>
+    </div>
+    <div class="card">
+      <h4>Reentrenamiento y monitorización de deriva</h4>
+      <p>El M15 muestra que el modelo se degrada cuando el entorno cambia. Hacen falta métricas que detecten la degradación antes de que el recall se desplome.</p>
+    </div>
+    <div class="card">
+      <h4>Explicabilidad</h4>
+      <p>Un modelo que no justifica su decisión no se despliega en banca: hay obligación regulatoria de explicar las decisiones adversas. GNNExplainer devuelve el subgrafo mínimo que sostiene la predicción.</p>
+    </div>
+    <div class="card">
+      <h4>Arquitectura híbrida</h4>
+      <p>Base de datos de grafos para lo local y online, Spark para la analítica global en batch, con los resultados escritos de vuelta como propiedades de los nodos.</p>
+    </div>
+    <div class="card">
+      <h4>Un nodo <code>Disputa</code></h4>
+      <p>Sin él, friendly fraud y chargeback fraud no tienen firma detectable. Lo que no está en el modelo no se puede detectar.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════ -->
+<section id="glosario" class="block">
+  <span class="eyebrow">Apéndice</span>
+  <h2>Glosario</h2>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th style="width:14rem">Término</th><th>Definición</th></tr></thead>
+      <tbody>
+        <tr><td><strong>DAG</strong></td><td>Grafo dirigido acíclico. No contiene ningún ciclo dirigido, así que todas sus componentes fuertemente conexas son de un solo nodo.</td></tr>
+        <tr><td><strong>Densidad</strong></td><td>Aristas existentes sobre el máximo posible. En Elliptic, 5,644 × 10⁻⁶: existe una de cada ~177 000 aristas posibles.</td></tr>
+        <tr><td><strong>Componente débil / fuerte</strong></td><td>Débil: conexa ignorando la dirección. Fuerte: existe camino dirigido en ambos sentidos entre cualquier par.</td></tr>
+        <tr><td><strong>Excentricidad</strong></td><td>Distancia del nodo al más lejano. El máximo sobre todos los nodos es el diámetro; el mínimo, el radio.</td></tr>
+        <tr><td><strong>Betweenness</strong></td><td>Fracción de caminos mínimos que pasan por un nodo. Identifica puentes: en blanqueo, el intermediario que conecta el mundo ilícito con el lícito.</td></tr>
+        <tr><td><strong>Modularidad (Q)</strong></td><td>Compara las aristas internas de las comunidades con las esperadas en un grafo aleatorio de los mismos grados. Por encima de 0,3 se considera estructura clara.</td></tr>
+        <tr><td><strong>Límite de resolución</strong></td><td>La modularidad no detecta comunidades con menos de √(2m) aristas. Con 234 355 aristas, unas 680: un anillo de diez cuentas es indetectable por esta vía.</td></tr>
+        <tr><td><strong>Motif</strong></td><td>Patrón pequeño de conexión que aparece con frecuencia significativamente distinta a la esperada por azar.</td></tr>
+        <tr><td><strong>Feed-forward loop</strong></td><td>Tríada <code>030T</code>: A envía a C directamente y también a través de B. Con importes casi idénticos, señal de operación estructurada.</td></tr>
+        <tr><td><strong>Transitividad</strong></td><td>Triángulos sobre tríadas conectadas. No es lo mismo que el clustering medio: la primera la dominan los hubs, el segundo los nodos periféricos.</td></tr>
+        <tr><td><strong>Cierre triádico</strong></td><td>Si A se relaciona con B y B con C, la probabilidad de que A y C acaben conectados es muy superior a la de dos nodos al azar. Es la base teórica del link prediction.</td></tr>
+        <tr><td><strong>Fuga de información</strong></td><td>Usar en entrenamiento información que no estará disponible en el momento de la predicción. Produce métricas excelentes y modelos inútiles.</td></tr>
+        <tr><td><strong>Concept drift</strong></td><td>Cambio en la distribución de los datos con el tiempo. En fraude es la norma: los defraudadores cambian de técnica.</td></tr>
+        <tr><td><strong>Negativo difícil</strong></td><td>Ejemplo negativo elegido cerca de la frontera de decisión. En link prediction, un par a distancia 2 sin arista.</td></tr>
+        <tr><td><strong>Precision@K</strong></td><td>De las K alertas mejor puntuadas, cuántas son reales. La métrica que importa cuando un analista revisa 50 casos al día.</td></tr>
+        <tr><td><strong>Lift</strong></td><td>Cociente entre la precisión del sistema y la tasa base. Un lift de 2 significa el doble de fraude detectado con el mismo personal.</td></tr>
+        <tr><td><strong>Reificación</strong></td><td>Convertir una relación en nodo para que pueda llevar atributos propios y ser consultada como entidad.</td></tr>
+        <tr><td><strong>Meta-camino</strong></td><td>Secuencia de tipos de nodo y relación en un grafo heterogéneo. La unidad semántica de consulta.</td></tr>
+        <tr><td><strong>Adyacencia sin índice</strong></td><td>Cada nodo guarda referencias directas a sus vecinos, así que expandir un salto no consulta ningún índice global. Es la propiedad de la que deriva toda la ventaja del modelo de grafos.</td></tr>
+        <tr><td><strong>Transductivo / inductivo</strong></td><td>Un modelo transductivo (GCN) necesita el grafo completo en entrenamiento. Uno inductivo (GraphSAGE) generaliza a nodos nuevos sin reentrenar.</td></tr>
+        <tr><td><strong>Over-smoothing</strong></td><td>Al apilar capas en una GNN, todos los embeddings convergen al mismo valor y se pierde la capacidad de distinguir nodos.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════════════ -->
+<section id="refs" class="block">
+  <span class="eyebrow">Apéndice</span>
+  <h2>Referencias</h2>
+
+  <div class="grid2">
+    <div class="card">
+      <h4>Dataset y dominio</h4>
+      <ul>
+        <li>Weber et al. (2019). <em>Anti-Money Laundering in Bitcoin: Experimenting with GCN for Financial Forensics.</em></li>
+        <li>Akoglu, Tong &amp; Koutra (2015). <em>Graph-based Anomaly Detection and Description: A Survey.</em></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>Estructura y comunidades</h4>
+      <ul>
+        <li>Blondel et al. (2008). <em>Fast unfolding of communities in large networks</em> (Louvain).</li>
+        <li>Traag, Waltman &amp; van Eck (2019). <em>From Louvain to Leiden.</em></li>
+        <li>Clauset, Shalizi &amp; Newman (2009). <em>Power-law distributions in empirical data.</em></li>
+        <li>Milo et al. (2002). <em>Network Motifs: Simple Building Blocks of Complex Networks.</em></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>Embeddings</h4>
+      <ul>
+        <li>Grover &amp; Leskovec (2016). <em>node2vec: Scalable Feature Learning for Networks.</em></li>
+        <li>Ou et al. (2016). <em>Asymmetric Transitivity Preserving Graph Embedding</em> (HOPE).</li>
+        <li>Tang et al. (2015). <em>LINE: Large-scale Information Network Embedding.</em></li>
+        <li>Bordes et al. (2013). <em>Translating Embeddings for Modeling Multi-relational Data</em> (TransE).</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>Redes neuronales de grafos</h4>
+      <ul>
+        <li>Kipf &amp; Welling (2017). <em>Semi-Supervised Classification with GCN.</em></li>
+        <li>Hamilton, Ying &amp; Leskovec (2017). <em>Inductive Representation Learning on Large Graphs</em> (GraphSAGE).</li>
+        <li>Veličković et al. (2018). <em>Graph Attention Networks.</em></li>
+        <li>Xu et al. (2019). <em>How Powerful are Graph Neural Networks?</em> (GIN).</li>
+        <li>Schlichtkrull et al. (2018). <em>Modeling Relational Data with GCN</em> (RGCN).</li>
+        <li>Rossi et al. (2020). <em>Temporal Graph Networks for Deep Learning on Dynamic Graphs.</em></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>Anomalías y explicabilidad</h4>
+      <ul>
+        <li>Akoglu, McGlohon &amp; Faloutsos (2010). <em>OddBall: Spotting Anomalies in Weighted Graphs.</em></li>
+        <li>Ding et al. (2019). <em>Deep Anomaly Detection on Attributed Networks</em> (DOMINANT).</li>
+        <li>Bandyopadhyay, Lokesh &amp; Murty (2019). <em>Outlier Aware Network Embedding</em> (ONE).</li>
+        <li>Ying et al. (2019). <em>GNNExplainer: Generating Explanations for Graph Neural Networks.</em></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>Fundamentos citados en el texto</h4>
+      <ul>
+        <li>Levy &amp; Goldberg (2014). <em>Neural Word Embedding as Implicit Matrix Factorization.</em></li>
+        <li>Fortunato &amp; Barthélemy (2007). <em>Resolution limit in community detection.</em></li>
+        <li>Brandes (2001). <em>A faster algorithm for betweenness centrality.</em></li>
+        <li>Batagelj &amp; Mrvar (2001). <em>A subquadratic triad census algorithm.</em></li>
+      </ul>
+    </div>
+  </div>
+
+  <footer>
+    <p>
+      Documentación de <code>AnalisisGrafos.ipynb</code> · 24 módulos · 124 celdas · 118 funciones ·
+      dos grafos de trabajo. Generada junto con la reescritura del notebook.
+    </p>
+  </footer>
+</section>
+
+</div>
+</main>
+</div>
+
+<script>
+(function () {
+  var q = document.getElementById('q');
+  var tabla = document.getElementById('cat');
+  var cnt = document.getElementById('cnt');
+  if (!q || !tabla || !cnt) { return; }
+
+  var filas = Array.prototype.slice.call(tabla.tBodies[0].rows);
+  var total = filas.length;
+
+  function actualizar() {
+    var t = q.value.trim().toLowerCase();
+    var visibles = 0;
+    for (var i = 0; i < filas.length; i++) {
+      var coincide = t === '' || filas[i].textContent.toLowerCase().indexOf(t) !== -1;
+      filas[i].classList.toggle('hidden', !coincide);
+      if (coincide) { visibles++; }
+    }
+    cnt.textContent = t === ''
+      ? total + ' funciones'
+      : visibles + ' de ' + total;
+  }
+
+  q.addEventListener('input', actualizar);
+  actualizar();
+})();
+</script>

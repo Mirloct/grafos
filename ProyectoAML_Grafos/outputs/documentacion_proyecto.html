@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Documentación técnica y analítica — Network Intelligence</title>
+<style>
+:root{color-scheme:light dark;--bg:light-dark(#f3f6fb,#0d1726);--panel:light-dark(#fff,#17243a);--ink:light-dark(#182940,#e1eafa);--muted:light-dark(#536579,#b1c1d6);--line:light-dark(#d5dfec,#35455d);--accent:light-dark(#235fc5,#8ab5ff)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.65 system-ui,sans-serif}header{padding:35px 5%;background:#11243d;color:#fff}header p{color:#c0cee0;max-width:900px}h1{font-size:30px;margin:0}h2{font-size:23px;margin:0 0 16px}h3{font-size:18px}a{color:var(--accent)}main{display:grid;grid-template-columns:240px minmax(0,1050px);gap:30px;max-width:1400px;margin:auto;padding:28px}nav{position:sticky;top:18px;align-self:start;max-height:94vh;overflow:auto}nav a{display:block;padding:6px 0;font-size:14px}section{background:var(--panel);border:1px solid var(--line);padding:28px;margin-bottom:22px;border-radius:10px;scroll-margin-top:20px}table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}.scroll{overflow:auto}pre{padding:15px;overflow:auto;border:1px solid var(--line);border-radius:7px;font-size:13px}code{font-size:.9em}small{color:var(--muted)}li{margin:6px 0}.flow{font-family:monospace;line-height:2;padding:16px;background:var(--bg)}@media(max-width:850px){main{display:block;padding:15px}nav{position:static;max-height:none;margin-bottom:20px}section{padding:18px}}
+</style></head><body>
+<header><h1>Network Intelligence</h1><p>Documentación del proyecto de análisis de relaciones financieras: fundamentos, contratos, redes superpuestas, arquitectura, dependencias, operación y mantenimiento.</p><small style="color:#c0cee0">Revisión del proyecto: 4 de septiembre de 2026 · Python + HTML independiente</small></header>
+<main><nav aria-label="Contenido">
+<a href="#objetivo">01 · Objetivo y alcance</a><a href="#datos">02 · Contrato de datos</a><a href="#redes">03 · Modelo de redes</a><a href="#fundamentos">04 · Fundamentos y métricas</a><a href="#patrones">05 · Patrones de interacción</a><a href="#arquitectura">06 · Arquitectura y funciones</a><a href="#uso">07 · Operación del visor</a><a href="#escala">08 · Escala y rendimiento</a><a href="#dependencias">09 · Instalación y dependencias</a><a href="#extension">10 · Ampliación de atributos</a><a href="#pruebas">11 · Verificación y mantenimiento</a><a href="#fuentes">12 · Fuentes y ACFE</a><a href="#revision">13 · Revisión realizada</a><a href="#manifiesto">14 · Manifiesto de generación</a>
+</nav><div>
+<section id="objetivo"><h2>01 · Objetivo y alcance</h2>
+<p>El proyecto convierte el histórico de interacciones entre personas en una superficie de investigación: consultar emisores y receptores, explorar caminos, comparar redes que comparten individuos y examinar patrones estructurales junto con el detalle tabular que los sustenta.</p>
+<p>El punto de partida contiene cuatro campos: origen, destino, monto agregado y cantidad de transacciones. La evolución prevista incorpora atributos de persona, relación, periodo, canal y evidencia investigativa. El objetivo es una capa analítica mantenible que pueda integrarse a una plataforma de inteligencia financiera; este visor no implementa la plataforma AIP de Palantir.</p>
+<p>El producto consta de dos archivos HTML: el visor de trabajo y este documento. El procesamiento se ejecuta en Python; las consultas del visor ocurren en el equipo del investigador. No hay servidor, autenticación, colaboración entre usuarios ni escritura automática de casos en una base institucional.</p>
+<p>El histórico entregado puede estar limitado a individuos previamente elegidos por un investigador. Las métricas describen esa muestra observada; no representan automáticamente la red financiera completa. La falta de una interacción en la fuente no demuestra que nunca existió.</p>
+</section>
+<section id="datos"><h2>02 · Contrato de datos</h2>
+<div class="scroll"><table><thead><tr><th>Campo</th><th>Tipo</th><th>Regla</th></tr></thead><tbody>
+<tr><td>origen / destino</td><td>Texto</td><td>Identificador estable de persona, no vacío. Se preservan ceros iniciales. La coincidencia es exacta y distingue mayúsculas.</td></tr>
+<tr><td>suma_monto</td><td>Número finito ≥ 0</td><td>Monto agregado. No se convierten errores a cero. La moneda y su escala deben ser homogéneas en la extracción.</td></tr>
+<tr><td>ctd_trx</td><td>Entero positivo</td><td>Operaciones representadas por la fila, no necesariamente el número de filas del archivo.</td></tr>
+<tr><td>codmes</td><td>Texto YYYYMM</td><td>Opcional. Año y mes válidos; ejemplo 202501. No contiene secuencia intramensual.</td></tr>
+<tr><td>canal</td><td>Texto</td><td>Opcional. Representa el canal de la interacción; no se imputa si falta.</td></tr>
+</tbody></table></div>
+<p>Los encabezados se normalizan en minúsculas y con espacios convertidos a guiones bajos. Se aceptan los alias enumerados en <code>ALIASES</code>, por ejemplo <code>source</code>, <code>target</code>, <code>monto_total</code>, <code>transaction_count</code>, <code>mes</code> y <code>channel</code>. Los encabezados ambiguos o duplicados deben resolverse antes de generar.</p>
+<p>Una dimensión ausente o enteramente vacía no crea pestaña ni filtro. Si solo hay mes, funciona el análisis mensual; si solo hay canal, funciona el análisis por canal. Cuando una dimensión tiene valores parcialmente vacíos, sus filas permanecen en el histórico y en la consulta «Todos», pero no se incluyen en la serie de categorías conocidas.</p>
+<p>La granularidad esperada es origen–destino–mes–canal usando solamente las dimensiones presentes. Se suman los registros con la misma clave. El monto promedio se calcula después de sumar: Σmonto / Σtrx. Se preservan ambos sentidos A→B y B→A.</p>
+<p><strong>Extracciones históricas:</strong> extraer en una sola consulta las filas donde el origen <em>o</em> el destino pertenezca a la lista de interés. Concatenar una extracción por persona puede duplicar la interacción A→B cuando A y B están en la lista. Sin identificador transaccional no se puede distinguir automáticamente ese duplicado de una partición legítima. No se eliminan duplicados silenciosamente: el propietario debe asegurar que los totales no se repiten.</p>
+<p>Los identificadores deben estar almacenados como texto también en Excel: convertir después un número ya truncado no recupera sus dígitos. CSV usa coma como delimitador y punto decimal. La precisión numérica del pipeline es de coma flotante; no constituye un libro mayor contable. Los reversos negativos requieren un modelo específico antes de incorporarlos. Las validaciones se ejecutan internamente, sin sección de calidad en el visor.</p>
+</section>
+<section id="redes"><h2>03 · Personas y redes superpuestas</h2>
+<p>El grafo dirigido G=(V,E) contiene una persona por identificador y una arista agregada por par ordenado. Los pesos monetarios y los conteos son atributos distintos. Existe además una tabla segmentada por dimensiones, que permite recuperar los totales correctos al filtrar.</p>
+<div class="scroll"><table><thead><tr><th>Concepto</th><th>Definición implementada</th><th>Solapamiento</th></tr></thead><tbody>
+<tr><td>Comunidad estructural</td><td>Partición Louvain del histórico sobre proyección no dirigida.</td><td>Cada nodo recibe un identificador de comunidad.</td></tr>
+<tr><td>Red ego</td><td>Persona semilla y su vecindad según profundidad, dirección y filtros.</td><td>Un nodo puede pertenecer a muchas redes ego.</td></tr>
+<tr><td>Red de investigación</td><td>Agrupación con nombre que guarda varias semillas y el alcance de una consulta.</td><td>Las agrupaciones pueden compartir personas y relaciones.</td></tr>
+</tbody></table></div>
+<p>Por ejemplo, si A→X y X→B, la red directa de A incluye X y la de B también. La tabla Pertenencias informa que X pertenece a ambas. Esa coincidencia es observada; no se infiere una nueva transferencia A→B.</p>
+<p>Una búsqueda por múltiples semillas usa recorrido por anchura y adyacencias de entrada/salida. Solo incorpora las aristas recorridas hasta la profundidad solicitada. A un salto, incluye todas las interacciones históricas incidentes a las semillas, en la dirección elegida. Las tablas retienen su desagregación mensual y por canal.</p>
+<p>«Mis redes» conserva agrupaciones en memoria de la sesión y permite exportar sus definiciones a JSON. Cerrar o recargar el visor pierde las agrupaciones guardadas: exportarlas antes. Sus pertenencias conservan el alcance y filtros originales. En la comparación, un par se muestra una sola vez con su monto histórico completo; no se suman snapshots solapados. Los filtros originales figuran en la tabla Definiciones.</p>
+<p>Esta implementación ofrece solapamiento definido por consultas y agrupaciones del investigador. No es un algoritmo de comunidades probabilísticas solapadas como mixed-membership ni una resolución de identidades. Louvain sigue siendo una referencia estructural separada.</p>
+</section>
+<section id="fundamentos"><h2>04 · Fundamentos y métricas</h2>
+<ul>
+<li><strong>Contrapartes:</strong> grado entrante y saliente; cantidad de personas distintas conectadas en cada dirección.</li>
+<li><strong>Montos:</strong> fortalezas entrante/saliente ponderadas por suma_monto. El balance mostrado es recibido menos enviado en la fuente, no el saldo de una cuenta.</li>
+<li><strong>Razón salida/entrada:</strong> división de ambos totales. Si no hay entrada se usa cero internamente y no se activa la regla de equilibrio.</li>
+<li><strong>PageRank:</strong> centralidad dirigida ponderada por monto, con parámetros por defecto de NetworkX y hasta 1.000 iteraciones. La generación falla si no converge; no se sustituye por otra métrica bajo el mismo nombre.</li>
+<li><strong>Betweenness:</strong> participación en caminos mínimos sin ponderación monetaria; se aproxima con hasta 64 fuentes, semilla 7. Con ≤64 nodos se recorren todas las fuentes. Describe posición estructural, no trazabilidad de dinero.</li>
+<li><strong>Louvain:</strong> comunidades sobre una proyección que suma A→B y B→A. Los self-loops se excluyen de la proyección para evitar comunidades artificialmente reforzadas, pero permanecen en el grafo y tablas históricas.</li>
+</ul>
+<p>El índice histórico combina percentiles de monto recibido (16%), enviado (16%), contrapartes de entrada (18%), salida (18%), betweenness (22%) y PageRank (10%). Valores nulos estructurales de cero contribuyen cero. Son pesos de diseño exploratorio, no estimados mediante etiquetas ni calibrados como probabilidad. Los índices se calculan sobre todo el histórico cargado y no se recalculan al cambiar un filtro en el navegador.</p>
+<p>Si toda la proyección carece de montos positivos, Louvain utiliza conectividad no ponderada; con nodos sin aristas proyectadas crea grupos unitarios. La modularidad depende de escala y resolución: un grupo visual o comunidad no demuestra coordinación.</p>
+</section>
+<section id="patrones"><h2>05 · Patrones de interacción</h2>
+<div class="scroll"><table><thead><tr><th>Nombre neutral</th><th>Criterio implementado</th><th>Representación</th></tr></thead><tbody>
+<tr><td>Concentración de entradas</td><td>Al menos dos orígenes; contrapartes y monto recibido ≥ percentil 80 del histórico.</td><td>Entradas a personas seleccionadas.</td></tr>
+<tr><td>Dispersión de salidas</td><td>Al menos dos destinos; contrapartes y monto enviado ≥ percentil 80.</td><td>Salidas de personas seleccionadas.</td></tr>
+<tr><td>Entradas y salidas equilibradas</td><td>Entrada positiva, ambas direcciones y ratio salida/entrada entre 0,70 y 1,30.</td><td>Vecindad directa en ambas direcciones.</td></tr>
+<tr><td>Intermediación topológica</td><td>Betweenness positiva y ≥ percentil 80.</td><td>Contexto de entrada/salida de un salto.</td></tr>
+<tr><td>Circularidad</td><td>Pertenencia a una componente fuertemente conexa de más de un nodo.</td><td>Componente dirigida completa correspondiente, acotada visualmente si es grande.</td></tr>
+</tbody></table></div>
+<p>Son reglas exploratorias, parametrizadas en el código. Una componente fuertemente conexa contiene caminos de ida y vuelta, pero no asegura que los fondos hayan circulado cronológicamente. El equilibrio agregado no demuestra que los mismos fondos recibidos hayan sido reenviados. Una nómina, una familia o una actividad comercial también pueden producir estrellas, concentración o cadenas.</p>
+<p>La detección de layering transaccional, retención temporal, fraccionamiento por umbrales y velocidad requiere eventos individuales fechados. Un mes agregado no permite reconstruir el orden de operaciones dentro del mes. Las reglas del visor no permiten atribuir financiación terrorista. Cualquier interpretación AML requiere contexto y corroboración adicionales.</p>
+</section>
+<section id="arquitectura"><h2>06 · Arquitectura y funciones</h2>
+<div class="flow">CSV / XLSX → load_data → aggregate_relations → DiGraph → métricas / comunidades / patrones → JSON seguro → HTML + Plotly integrado<br>Lista de personas → índice de adyacencia → redes ego → pertenencias → subgrafo acotado + tablas completas → CSV</div>
+<pre>ProyectoAML_Grafos/
+├── generar_html.py
+├── src/aml_graph.py
+├── templates/
+│   ├── visor.html
+│   ├── style.css
+│   ├── core.js
+│   ├── app.js
+│   └── documentacion.html
+├── tests/
+├── requirements.txt
+├── requirements.lock.txt
+├── data/base_ejemplo.csv
+└── outputs/
+    ├── visor_aml_grafos_demo.html
+    └── documentacion_proyecto.html</pre>
+<div class="scroll"><table><thead><tr><th>Archivo / función</th><th>Responsabilidad</th></tr></thead><tbody>
+<tr><td>resolve_schema / load_data</td><td>Alias, IDs texto, validación numérica y dimensiones opcionales.</td></tr>
+<tr><td>aggregate_relations / build_graph</td><td>Tabla segmentada y grafo histórico por pares.</td></tr>
+<tr><td>detect_communities / community_metrics</td><td>Proyección ponderada, pertenencia exclusiva y resumen por grupo.</td></tr>
+<tr><td>person_metrics / risk_score</td><td>Métricas históricas e índice relativo.</td></tr>
+<tr><td>detect_aml_patterns</td><td>Reglas de interacción; el nombre interno se conserva por compatibilidad.</td></tr>
+<tr><td>build_payload / generate</td><td>Metadatos, hash SHA-256 de entrada, serialización segura y generación de ambos HTML.</td></tr>
+<tr><td>core.js: index / walk / query</td><td>Adyacencias, recorridos dirigidos y pertenencias múltiples sin depender del DOM.</td></tr>
+<tr><td>core.js: aggregate / chooseView / csv</td><td>Agregación por pares, límite de dibujo y exportación CSV.</td></tr>
+<tr><td>app.js: investigate / renderSaved</td><td>Consultas, mensajes de IDs ausentes y comparación de redes.</td></tr>
+<tr><td>app.js: renderTable / draw / theme</td><td>Paginación, ordenación, exportación, geometría del grafo y tema completo.</td></tr>
+<tr><td>graph_layouts</td><td>Utilidad Python heredada. El generador actual no la ejecuta ni serializa cinco layouts globales: los layouts de la vista se calculan en el navegador.</td></tr>
+</tbody></table></div>
+</section>
+<section id="uso"><h2>07 · Operación del visor</h2>
+<ol>
+<li>Generar el HTML a partir de una extracción agregada consistente.</li>
+<li>Abrir el archivo y pegar IDs separados por comas, punto y coma, tabulaciones o líneas. También se acepta un archivo .txt con ese formato; no contiene encabezado.</li>
+<li>Elegir alcance de 1–3 saltos y dirección. Los meses y canales se filtran solo si están disponibles. «Todo el histórico» es la selección predeterminada.</li>
+<li>Consultar Interacciones, Pertenencias y Redes por persona. Los IDs ausentes se informan, no disparan una consulta global.</li>
+<li>Guardar una agrupación con nombre tras ejecutar la consulta. Usar Mis redes para revisar intersecciones de pertenencia.</li>
+<li>Filtrar/ordenar una tabla y exportar su resultado. El CSV contiene todas las filas filtradas, no solo la página de 60 filas ni la muestra del dibujo.</li>
+</ol>
+<p>El botón de tema adapta la página y Plotly: fondo, tablas, encabezados, controles, ejes, flechas, textos, leyendas y tooltips. Solo la preferencia visual se guarda en almacenamiento local, si el navegador lo permite. Las redes e identificadores consultados permanecen en memoria de la sesión.</p>
+<p>Los cinco layouts son fuerza local, agrupación por comunidad, capas de flujo, radial y circular. Las flechas tienen orientación geométrica, las relaciones recíprocas se curvan para distinguir sentidos y las auto-relaciones se dibujan como bucles. Los colores distinguen consultados, compartidos y comunidades; las entradas/salidas se reconocen en las aristas. En vistas grandes las etiquetas se reducen y el hover mantiene el identificador.</p>
+<p>Con más de 25 nodos se muestran como máximo 12 etiquetas de semillas; los identificadores largos se abrevian en el dibujo, no en la consulta ni en las tablas. El hover conserva el ID completo. Este presupuesto evita que una lista masiva de personas produzca cientos de textos sobrepuestos.</p>
+<p>Al hacer clic en un nodo o en un identificador de tabla, se abre su vecindad directa en todo el histórico. El título y los filtros se actualizan. El buscador interno de tabla solo filtra la tabla y su exportación; para cambiar la red se utiliza la consulta principal.</p>
+</section>
+<section id="escala"><h2>08 · Escala y rendimiento</h2>
+<p>El histórico se carga completamente en memoria de Python y el HTML integra el conjunto agregado. El diseño admite muchas interacciones, pero no se presenta como ilimitado: millones de relaciones pueden exceder la memoria del navegador o producir un archivo impráctico.</p>
+<ul>
+<li>Índice de adyacencia O(V+E). BFS por semilla acotado por profundidad; presupuesto de 2.000.000 visitas a aristas por consulta. Si se supera se informa y se conserva la vista anterior, sin presentar resultados parciales como completos.</li>
+<li>El último índice se reutiliza mientras no cambian mes/canal. Una nueva lista de personas no obliga a reagrupar el histórico.</li>
+<li>La vista dibuja hasta 250 personas y 600 relaciones agregadas, ordenadas por monto y dando espacio a semillas. Las tablas y exportaciones conservan el resultado consultado completo.</li>
+<li>Fuerza local: hasta 55 iteraciones sobre la vista acotada; no se calcula una fuerza densa sobre todo el histórico.</li>
+<li>Las tablas montan 60 filas por página, con scrolling horizontal/vertical. Búsqueda y exportación recorren el resultado completo en memoria.</li>
+<li>Solo el gráfico de la pestaña activa se renderiza. El payload no duplica cinco conjuntos globales de coordenadas.</li>
+<li>El cálculo de betweenness usa una muestra reproducible de hasta 64 fuentes. PageRank y Louvain trabajan sobre el grafo histórico completo.</li>
+</ul>
+<p>La suma de números de doble precisión y la ordenación de exportaciones grandes consumen tiempo/memoria. Registrar filas agregadas, nodos, aristas, tamaño HTML, RAM máxima y latencias de consultas representativas antes de producción. Las cifras del benchmark de pruebas son de un caso sintético y no constituyen un SLA.</p>
+<h3>Medición reproducible del motor de consultas</h3>
+<p>Ejecutado el 04/09/2026 con <code>node tests/benchmark.cjs</code>, Node 24.19.0 y AMD Ryzen 7 8840HS: 50.000 personas, 200.000 relaciones sintéticas y una consulta de 1.000 semillas a un salto. Indexación: 275 ms; consulta: 10 ms; selección del dibujo: 6 ms; serialización CSV: 12 ms. Resultado: 8.000 relaciones consultadas y las mismas 8.000 exportadas; el dibujo se acotó a 250 personas y 96 relaciones. Memoria RSS observada al terminar: 197 MiB (no es medición de pico).</p>
+<p>Es una ejecución del motor JavaScript en Node, no del pipeline Python ni del renderizado de Plotly en navegador. Los tiempos cambian según estructura, filtros, profundidad, hardware y carga; medir de nuevo con la extracción real antes de fijar objetivos operativos.</p>
+<p>La siguiente etapa de escala requiere ingesta incremental en Parquet/DuckDB, almacenamiento de adyacencias, consultas por subgrafo mediante API y paginación en servidor. Un HTML descargable seguiría sirviendo para exportar un caso acotado. No se implementan esas capacidades en esta entrega.</p>
+</section>
+<section id="dependencias"><h2>09 · Instalación y dependencias</h2>
+<pre>python -m venv .venv
+# Activar el entorno virtual según el sistema.
+python -m pip install -r requirements.lock.txt
+python generar_html.py --input data/base.csv --output outputs/visor_aml_grafos.html
+python -m unittest discover -s tests
+node --test tests/core.test.cjs</pre>
+<p>Para las pruebas de integración DOM: instalar herramientas de desarrollo con <code>pnpm install --frozen-lockfile --ignore-scripts</code> y ejecutar <code>pnpm test</code>. LinkeDOM 0.18.12 simula el documento y se sustituye Plotly por un receptor de trazas; estas pruebas verifican interacciones y propiedades de tema, no la geometría final renderizada por un navegador.</p>
+<p>Ejecutar desde la carpeta ProyectoAML_Grafos. El archivo de dependencias mínimas permite actualizaciones; el lock registra las versiones verificadas de las bibliotecas principales. Para una distribución reproducible estricta, congelar también dependencias transitivas y registrar plataforma y versión Python del entorno validado.</p>
+<div class="scroll"><table><thead><tr><th>Biblioteca</th><th>Uso</th></tr></thead><tbody>
+<tr><td>pandas</td><td>CSV/XLSX, agrupaciones y tablas de métricas.</td></tr>
+<tr><td>NumPy</td><td>Validaciones numéricas y operaciones vectorizadas.</td></tr>
+<tr><td>NetworkX</td><td>Grafos dirigidos, PageRank, betweenness, componentes y Louvain.</td></tr>
+<tr><td>SciPy</td><td>Matrices dispersas utilizadas por PageRank.</td></tr>
+<tr><td>Plotly Python + Plotly.js</td><td>El generador integra su paquete JavaScript dentro del HTML, sin CDN; renderización interactiva local.</td></tr>
+<tr><td>openpyxl</td><td>Lectura de archivos XLSX.</td></tr>
+<tr><td>Biblioteca estándar Python</td><td>CLI, hashes, JSON, rutas, fechas, metadatos y pruebas.</td></tr>
+<tr><td>Node.js</td><td>Pruebas del motor de consultas JavaScript; no es dependencia del usuario final del visor.</td></tr>
+</tbody></table></div>
+<p>El visor requiere un navegador moderno con JavaScript y soporte de Blob/URL para exportar. No hay fuentes web, CDN ni llamadas a servicios externos en tiempo de ejecución. Distribuir el HTML implica distribuir los datos que contiene, incluidos los que no se dibujan en la vista acotada.</p>
+</section>
+<section id="extension"><h2>10 · Ampliación de atributos</h2>
+<p>Los atributos adicionales encontrados se enumeran en el manifiesto, pero aún no se promueven automáticamente a columnas de análisis. Es necesario definir su granularidad y semántica antes de incorporarlos.</p>
+<div class="scroll"><table><thead><tr><th>Entidad</th><th>Ejemplos</th><th>Regla de integración</th></tr></thead><tbody>
+<tr><td>Persona</td><td>Tipo, segmento, ocupación, riesgo KYC.</td><td>Tabla por ID estable; un join debe preservar una fila por persona o resolver versiones temporalmente.</td></tr>
+<tr><td>Relación / periodo</td><td>Producto, moneda, país, tipo de operación.</td><td>Ampliar las claves de agregación; no elegir arbitrariamente el primer valor de atributos conflictivos.</td></tr>
+<tr><td>Evento</td><td>Fecha/hora, ID de transacción, monto individual.</td><td>Contrato nuevo de eventos para validar secuencias, reversos, velocidad y deduplicación.</td></tr>
+<tr><td>Investigación</td><td>Casos, decisiones, etiquetas y fecha de conocimiento.</td><td>Control de acceso, trazabilidad y evaluación fuera de muestra antes de entrenar modelos.</td></tr>
+</tbody></table></div>
+<p>Una nueva moneda no se suma a otra sin conversión documentada; una nueva fuente no se concatena sin reconciliar IDs. Para nuevas reglas, agregar la definición, datos requeridos, regla exacta, visualización, casos positivos/negativos, limitaciones y fuente de respaldo. El modelo operativo debe admitir pertenencias múltiples, no forzar un único grupo por persona.</p>
+</section>
+<section id="pruebas"><h2>11 · Verificación y mantenimiento</h2>
+<p>Las pruebas del proyecto cubren las cuatro combinaciones de campos opcionales, dimensiones vacías, preservación de IDs, números inválidos, conservación de totales, suma de relaciones recíprocas, consulta entrante/saliente, redes superpuestas y exportación de resultados completos.</p>
+<p>Después de modificar: ejecutar pruebas Python y JavaScript; generar desde la base de ejemplo; verificar manualmente búsquedas, guardar/comparar redes, cambiar filtros, exportar CSV, las cinco geometrías, claro/oscuro y anchos de pantalla. Los chequeos de sintaxis no equivalen a una inspección visual.</p>
+<p>La inspección automatizada del archivo local por el navegador de esta sesión estaba bloqueada por su política de URLs. La verificación de esta revisión se basa en ejecución del generador y pruebas del motor de consultas; no se certifica ausencia de superposiciones por inspección visual automatizada.</p>
+<p>En CSV se escapan comillas y se neutralizan celdas de texto que podrían interpretarse como fórmulas. Para mantener IDs con ceros iniciales al abrir un CSV en Excel, importar esas columnas como texto. El JSON embebido escapa el carácter &lt; para impedir que un identificador cierre prematuramente su contenedor. Los valores de tablas se insertan escapados.</p>
+<p>Operación recomendada: conservar fuente, hash, versión del generador, parámetros, entorno y resultados de pruebas; revisar cambios de distribución, estabilidad de comunidades y esfuerzo humano de revisión. Sin casos etiquetados no se calculan precisión, recall ni eficacia AML. Evitar atribuir una tasa de detección a pruebas puramente sintéticas.</p>
+</section>
+<section id="fuentes"><h2>12 · Fuentes y ACFE</h2>
+<p>Separar autoridad normativa, soporte algorítmico y material divulgativo. La existencia de una institución en esta lista no valida umbrales propios ni pesos del índice. Los enlaces siguientes permiten contrastar cada afirmación.</p>
+<div class="scroll"><table><thead><tr><th>Fuente primaria</th><th>Aporte y alcance</th><th>Estado</th></tr></thead><tbody>
+<tr><td><a href="https://networkx.org/documentation/stable/reference/algorithms/generated/networkx.algorithms.community.louvain.louvain_communities.html">NetworkX · Louvain</a></td><td>Define una partición basada en modularidad y advierte sobre self-loops. Motiva separar comunidad exclusiva y redes de investigación.</td><td>Consultada 04/09/2026.</td></tr>
+<tr><td><a href="https://plotly.com/javascript/plotlyjs-function-reference/">Plotly · referencia JavaScript</a></td><td>Contratos de renderización, actualización y layout; soporte para redibujar al cambiar tema y tamaño.</td><td>Consultada 04/09/2026.</td></tr>
+<tr><td><a href="https://www.acfe.com/home/fraud-resources/fraud-risk-tools---coso/fraud-risk-management-guide">ACFE/COSO · Fraud Risk Management Guide</a></td><td>Marco de gobierno, evaluación, controles, investigación y monitoreo.</td><td>Página pública consultada 04/09/2026; no se afirma haber leído el libro completo de pago.</td></tr>
+<tr><td><a href="https://www.cylab.cmu.edu/education/executive-education/courses/cybersecurity-ai/machine-learning-fraud-detection.html">Carnegie Mellon · Graph mining</a></td><td>Formación técnica sobre centralidad, comunidades y anomalías; no es validación empírica de este dataset.</td><td>Consultada 04/09/2026.</td></tr>
+<tr><td><a href="https://www.fincen.gov/system/files/advisory/2020-07-07/Advisory_%20Imposter_and_Money_Mule_COVID_19_508_FINAL.pdf">FinCEN · Advisory 2020</a></td><td>Indicadores financieros en esquemas concretos; requiere contexto y combinación de señales.</td><td>Referencia recuperada en investigación previa del proyecto; aplicación contextual, no obligación legal local.</td></tr>
+<tr><td><a href="https://www.fbi.gov/how-we-can-help-you/common-frauds-and-scams/money-mules">FBI · Money Mules</a></td><td>Descripción pública del movimiento de fondos por terceros y cuentas de concentración.</td><td>Referencia de investigación previa. No fija umbrales del visor.</td></tr>
+<tr><td><a href="https://www.fatf-gafi.org/en/publications/Fatfrecommendations/Fatf-recommendations.html">FATF · Recommendations</a></td><td>Marco AML/CFT y enfoque basado en riesgo; cumplimiento jurisdiccional requiere revisión especializada.</td><td>Referencia previa; comprobar edición vigente antes de uso regulatorio.</td></tr>
+<tr><td><a href="https://www.incibe.es/linea-de-ayuda-en-ciberseguridad/casos-reales/intento-de-fraude-bancario-una-pyme-para-realizar-blanqueo-de-capitales">INCIBE · Caso de fraude bancario</a></td><td>Contexto de fraude y preservación de evidencia; no metodología de grafos.</td><td>Referencia previa del proyecto.</td></tr>
+</tbody></table></div>
+<h3>Aplicación del marco ACFE/COSO</h3>
+<p>Asignar responsables y límites de uso; documentar riesgos y datos faltantes; asociar pruebas analíticas a controles; registrar investigaciones y acciones correctivas; medir el funcionamiento y revisar resultados. La analítica debe formar parte de ese proceso, junto a otras fuentes de evidencia. El visor implementa exploración y trazabilidad local, no sustituye el programa institucional de gestión del riesgo.</p>
+<p>Las referencias a JPMorgan, PayPal o Palantir pueden orientar requisitos de producto si existe documentación primaria pertinente; no se atribuye a esas empresas el algoritmo ni la eficacia de esta implementación. No se atribuyen prácticas internas a CIA, MI6 o Department of War sin una fuente pública verificable. La investigación de dichas entidades no se presenta como exhaustiva.</p>
+<h3>Protocolo para incorporar una fuente</h3>
+<p>Registrar título, autor, organización, URL/DOI, fecha de publicación, fecha de consulta, fragmento o sección relevante, afirmación sustentada, tipo de evidencia y límite de aplicabilidad. Un enlace vivo demuestra disponibilidad, no validez científica. Distinguir resultados medidos, recomendaciones, descripciones comerciales e inferencias del proyecto.</p>
+</section>
+<section id="revision"><h2>13 · Revisión realizada</h2>
+<ul>
+<li>Consulta ampliada a listas de IDs y archivos de texto, con dirección y alcance definidos.</li>
+<li>Redes por semilla y agrupaciones de sesión con pertenencias superpuestas.</li>
+<li>Tablas paginadas, filtrables, ordenables y exportables con el resultado completo.</li>
+<li>Tema claro/oscuro compartido por todos los elementos y los gráficos activos.</li>
+<li>Título neutral «Patrones de interacción», sin bloque de metodología en el visor.</li>
+<li>Documentación HTML independiente y registro de versiones/hash por generación.</li>
+<li>Corrección de ceros iniciales, valores numéricos inválidos, dimensiones vacías y pesos recíprocos de la proyección.</li>
+<li>Renderizado acotado y eliminación de cinco layouts globales duplicados del payload.</li>
+<li>Plotly integrado sin dependencia de conectividad y JSON escapado.</li>
+</ul>
+</section>
+<section id="manifiesto"><h2>14 · Manifiesto de generación</h2><p>Este registro se actualiza al generar los HTML. El hash permite vincular el resultado con la fuente exacta. No certifica por sí mismo integridad de los datos ni exactitud analítica.</p><pre>{
+  &quot;sha256&quot;: &quot;c0ba4d6f7db03622a5a0be46d687fd1567e82425272459db0bdc674df317bfff&quot;,
+  &quot;generated&quot;: &quot;2026-09-04T23:15:55.041819+00:00&quot;,
+  &quot;input_rows&quot;: 9,
+  &quot;betweenness_samples&quot;: 9,
+  &quot;additional_columns&quot;: [],
+  &quot;versions&quot;: {
+    &quot;pandas&quot;: &quot;3.0.1&quot;,
+    &quot;numpy&quot;: &quot;2.3.5&quot;,
+    &quot;networkx&quot;: &quot;3.6.1&quot;,
+    &quot;scipy&quot;: &quot;1.18.1&quot;,
+    &quot;plotly&quot;: &quot;7.0.0&quot;,
+    &quot;openpyxl&quot;: &quot;3.1.5&quot;
+  }
+}</pre></section>
+</div></main></body></html>

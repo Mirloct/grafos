@@ -1,0 +1,8 @@
+# Versiones principales verificadas en Python 3.12.
+# Para reproducción exacta del entorno deben congelarse también transitivas.
+pandas==3.0.1
+numpy==2.3.5
+networkx==3.6.1
+scipy==1.18.1
+plotly==7.0.0
+openpyxl==3.1.5

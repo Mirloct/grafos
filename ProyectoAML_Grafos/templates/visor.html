@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="es" data-theme="light">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Explorador de relaciones | Network Intelligence</title>
+<style>__STYLE__</style><script>__PLOTLY__</script>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="brandmark">NI</span><div><strong>Network Intelligence</strong><small>Explorador de relaciones</small></div></div>
+  <span id="datasetLabel" class="dataset-label"></span>
+  <button id="themeToggle" aria-pressed="false">Modo oscuro</button>
+</header>
+<nav id="navigation" aria-label="Análisis"></nav>
+<main>
+  <div class="heading"><div><h1 id="pageTitle"></h1><p id="pageDescription"></p></div><span id="historicalLabel" class="pill">Métricas: histórico cargado</span></div>
+  <div id="message" role="status" aria-live="polite"></div>
+  <section id="controls" class="controls"></section>
+  <section id="stats" class="stats"></section>
+  <section class="workspace">
+    <article class="surface graph-surface">
+      <header class="surface-header"><h2 id="graphTitle">Relaciones</h2><select id="layoutSelect" aria-label="Distribución del grafo"><option>Fuerza</option><option>Comunidades</option><option>Flujo</option><option>Radial</option><option>Circular</option></select></header>
+      <div id="graph" role="img" aria-label="Grafo dirigido consultable"></div>
+      <div class="graph-legend" id="graphLegend"><span><i class="seed-dot"></i>Consultada / seleccionada</span><span><i class="in-dot"></i>Entrante</span><span><i class="out-dot"></i>Saliente</span><span><i class="shared-dot"></i>Miembro compartido</span><span>Otros nodos: color por comunidad</span></div>
+      <footer id="graphScope"></footer>
+    </article>
+    <aside class="surface detail-surface">
+      <header class="surface-header"><h2 id="tableTitle">Detalle</h2><button id="exportTable">Exportar CSV</button></header>
+      <div id="tableTabs" class="table-tabs" aria-label="Detalle de la consulta"></div>
+      <label class="table-search">Buscar en esta tabla<input type="search" id="tableSearch" placeholder="Filtra el detalle y la exportación"></label>
+      <div class="table-scroll" id="tableContainer"></div>
+      <footer class="pager"><button id="previousPage">Anterior</button><span id="tableCount" aria-live="polite"></span><button id="nextPage">Siguiente</button></footer>
+    </aside>
+  </section>
+</main>
+<script type="application/json" id="payload">__PAYLOAD__</script>
+<script>__CORE__</script><script>__APP__</script>
+</body></html>

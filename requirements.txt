@@ -1,0 +1,49 @@
+# =============================================================================
+# Dependencias de AnalisisGrafos.ipynb
+#
+#   Instalación mínima (recorre los 24 módulos completos sin errores):
+#       pip install -r requirements.txt
+#
+#   Las dependencias OPCIONALES están comentadas al final. El notebook detecta
+#   cuáles están instaladas mediante las banderas TORCH_OK / GENSIM_OK / etc. y
+#   se salta con un aviso las celdas que no puede ejecutar, sin romper el flujo.
+#
+#   En Google Colab no hace falta instalar nada: todo lo de la sección BASE y
+#   además torch, plotly y gensim vienen preinstalados.
+# =============================================================================
+
+# --- BASE: imprescindible ----------------------------------------------------
+networkx>=3.1          # Louvain integrado y to_scipy_sparse_array; <3.1 falla
+pandas>=2.0
+numpy>=1.24
+scipy>=1.10            # svds, matrices dispersas, spearmanr
+matplotlib>=3.7
+scikit-learn>=1.3      # RandomForest, t-SNE, IsolationForest, métricas
+kagglehub>=0.2         # descarga del dataset Elliptic
+
+# --- OPCIONALES: descomenta lo que quieras usar ------------------------------
+# Módulos 14 y 16 — GNN (GCN/GraphSAGE/GAT/GIN/RGCN), autoencoder y DOMINANT.
+# Pesa ~800 MB. Para CPU: pip install torch --index-url https://download.pytorch.org/whl/cpu
+# torch>=2.0
+
+# Módulo 13 — Word2Vec para DeepWalk y Node2Vec.
+# Sin gensim el notebook usa una factorización PPMI + SVD equivalente (Levy & Goldberg 2014).
+# gensim>=4.3
+
+# Módulo 17 — visualización interactiva.
+# plotly>=5.18
+# pyvis>=0.3
+
+# Módulo 7 — algoritmo de Leiden (requiere ambos paquetes).
+# python-igraph>=0.11
+# leidenalg>=0.10
+
+# Módulo 7 — algoritmo de Infomap.
+# infomap>=2.7
+
+# Módulo 13 — UMAP como alternativa a t-SNE. Solo se documenta, no se ejecuta.
+# umap-learn>=0.5
+
+# --- Entorno de ejecución ----------------------------------------------------
+# jupyterlab>=4.0      # solo si ejecutas en local en lugar de Colab
+# ipython>=8.0         # provee display(); en Colab ya está
