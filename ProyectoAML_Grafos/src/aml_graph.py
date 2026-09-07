@@ -10,6 +10,7 @@ import re
 import networkx as nx
 import numpy as np
 import pandas as pd
+from tqdm.auto import tqdm
 
 
 ALIASES = {
@@ -61,13 +62,34 @@ def resolve_schema(df: pd.DataFrame) -> Schema:
     )
 
 
-def load_data(path: str | Path) -> tuple[pd.DataFrame, Schema]:
-    """Carga CSV/Excel, normaliza tipos y conserva atributos adicionales."""
+def load_data(path: str | Path, nodes: set[str] | None = None, chunksize: int = 250_000,
+              show_progress: bool = False) -> tuple[pd.DataFrame, Schema]:
+    """Carga datos y, para CSV, filtra nodos por bloques antes de ocupar memoria."""
     path = Path(path)
     if not path.exists():
         raise FileNotFoundError(path)
-    df = pd.read_csv(path, dtype='string') if path.suffix.lower() == '.csv' else pd.read_excel(path, dtype='string')
-    schema = resolve_schema(df)
+    selected = {str(node).strip() for node in (nodes or set()) if str(node).strip()}
+    if path.suffix.lower() == '.csv':
+        header = pd.read_csv(path, dtype='string', nrows=0)
+        schema = resolve_schema(header)
+        frames: list[pd.DataFrame] = []
+        with path.open('rb') as source:
+            stream = tqdm.wrapattr(source, 'read', total=path.stat().st_size, desc='Leyendo CSV',
+                                   unit='B', unit_scale=True, disable=not show_progress)
+            with stream as progress_source:
+                for chunk in pd.read_csv(progress_source, dtype='string', chunksize=chunksize):
+                    if selected:
+                        origin = chunk[schema.origen].astype('string').str.strip()
+                        destination = chunk[schema.destino].astype('string').str.strip()
+                        chunk = chunk[origin.isin(selected) | destination.isin(selected)]
+                    if not chunk.empty:
+                        frames.append(chunk)
+        df = pd.concat(frames, ignore_index=True) if frames else header.copy()
+    else:
+        if selected:
+            raise ValueError('El filtrado temprano de nodos requiere CSV; convierta el XLSX a CSV.')
+        df = pd.read_excel(path, dtype='string')
+        schema = resolve_schema(df)
     for col in (schema.suma_monto, schema.ctd_trx):
         df[col] = pd.to_numeric(df[col], errors='coerce')
         if df[col].isna().any() or not np.isfinite(df[col].astype(float)).all() or (df[col] < 0).any():

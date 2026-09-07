@@ -88,7 +88,7 @@
 <tr><td>detect_communities / community_metrics</td><td>Proyección ponderada, pertenencia exclusiva y resumen por grupo.</td></tr>
 <tr><td>person_metrics / risk_score</td><td>Métricas históricas e índice relativo.</td></tr>
 <tr><td>detect_aml_patterns</td><td>Reglas de interacción; el nombre interno se conserva por compatibilidad.</td></tr>
-<tr><td>build_payload / generate</td><td>Metadatos, hash SHA-256 de entrada, serialización segura y generación de ambos HTML.</td></tr>
+<tr><td>build_payload / generate</td><td>Lectura por bloques, filtro temprano, progreso/ETA, checkpoints, metadatos, hash SHA-256 opcional, serialización segura y generación de ambos HTML.</td></tr>
 <tr><td>core.js: index / walk / query</td><td>Adyacencias, recorridos dirigidos y pertenencias múltiples sin depender del DOM.</td></tr>
 <tr><td>core.js: aggregate / chooseView / csv</td><td>Agregación por pares, límite de dibujo y exportación CSV.</td></tr>
 <tr><td>app.js: investigate / renderSaved</td><td>Consultas, mensajes de IDs ausentes y comparación de redes.</td></tr>
@@ -111,8 +111,12 @@
 <p>Al hacer clic en un nodo o en un identificador de tabla, se abre su vecindad directa en todo el histórico. El título y los filtros se actualizan. El buscador interno de tabla solo filtra la tabla y su exportación; para cambiar la red se utiliza la consulta principal.</p>
 </section>
 <section id="escala"><h2>08 · Escala y rendimiento</h2>
-<p>El histórico se carga completamente en memoria de Python y el HTML integra el conjunto agregado. El diseño admite muchas interacciones, pero no se presenta como ilimitado: millones de relaciones pueden exceder la memoria del navegador o producir un archivo impráctico.</p>
+<p>La fuente CSV se lee por bloques (250.000 filas por defecto). Sin filtro, los bloques terminan concatenándose y el histórico filtrado queda en memoria; por eso un archivo de 5 GB no debe convertirse íntegro en un HTML. Con <code>--nodes</code> o <code>--nodes-file</code>, cada bloque se reduce antes de conservarse: solo quedan relaciones incidentes a las personas indicadas. XLSX no admite este filtrado temprano y debe convertirse a CSV.</p>
+<pre>python generar_html.py --input D:\datos\movimientos.csv --nodes-file data\personas_interes.txt --chunksize 250000 --skip-hash --output outputs\visor_filtrado.html</pre>
+<p>La barra <code>tqdm</code> de lectura informa bytes, velocidad y tiempo restante estimado. Los checkpoints de salud registran tiempo transcurrido, filas retenidas, relaciones segmentadas, nodos, aristas, comunidades y fin de escritura. El hash SHA-256 tiene su propia barra y exige releer el archivo completo; <code>--skip-hash</code> evita esa segunda pasada a cambio de dejar el hash sin valor en el manifiesto.</p>
 <ul>
+<li><strong>Semántica del filtro:</strong> conserva A→B si A o B está en la lista. Por tanto produce la vecindad de un salto. El visor filtra libremente el subgrafo retenido, pero no puede descubrir relaciones eliminadas durante la ingesta. Para 2–3 saltos, ampliar la lista mediante pasadas sucesivas o hacer la expansión en la base origen.</li>
+<li><strong>Ajuste inicial:</strong> usar CSV en SSD local y <code>--chunksize 250000</code>. Subir a 500.000–1.000.000 solo con RAM holgada; bloques mayores reducen overhead pero elevan el pico de memoria.</li>
 <li>Índice de adyacencia O(V+E). BFS por semilla acotado por profundidad; presupuesto de 2.000.000 visitas a aristas por consulta. Si se supera se informa y se conserva la vista anterior, sin presentar resultados parciales como completos.</li>
 <li>El último índice se reutiliza mientras no cambian mes/canal. Una nueva lista de personas no obliga a reagrupar el histórico.</li>
 <li>La vista dibuja hasta 250 personas y 600 relaciones agregadas, ordenadas por monto y dando espacio a semillas. Las tablas y exportaciones conservan el resultado consultado completo.</li>
@@ -121,7 +125,7 @@
 <li>Solo el gráfico de la pestaña activa se renderiza. El payload no duplica cinco conjuntos globales de coordenadas.</li>
 <li>El cálculo de betweenness usa una muestra reproducible de hasta 64 fuentes. PageRank y Louvain trabajan sobre el grafo histórico completo.</li>
 </ul>
-<p>La suma de números de doble precisión y la ordenación de exportaciones grandes consumen tiempo/memoria. Registrar filas agregadas, nodos, aristas, tamaño HTML, RAM máxima y latencias de consultas representativas antes de producción. Las cifras del benchmark de pruebas son de un caso sintético y no constituyen un SLA.</p>
+<p>La estrategia sigue el criterio documentado en el análisis técnico previo: recorridos irregulares como BFS y ciclos permanecen en NetworkX; los cálculos expresables como operaciones dispersas deben migrarse a SciPy/igraph cuando la escala lo justifique, y los algoritmos exactos de coste O(n·m) se muestrean de forma explícita. La suma de números de doble precisión y la ordenación de exportaciones grandes consumen tiempo/memoria. Registrar filas agregadas, nodos, aristas, tamaño HTML, RAM máxima y latencias de consultas representativas antes de producción. Las cifras del benchmark de pruebas son de un caso sintético y no constituyen un SLA.</p>
 <h3>Medición reproducible del motor de consultas</h3>
 <p>Ejecutado el 04/09/2026 con <code>node tests/benchmark.cjs</code>, Node 24.19.0 y AMD Ryzen 7 8840HS: 50.000 personas, 200.000 relaciones sintéticas y una consulta de 1.000 semillas a un salto. Indexación: 275 ms; consulta: 10 ms; selección del dibujo: 6 ms; serialización CSV: 12 ms. Resultado: 8.000 relaciones consultadas y las mismas 8.000 exportadas; el dibujo se acotó a 250 personas y 96 relaciones. Memoria RSS observada al terminar: 197 MiB (no es medición de pico).</p>
 <p>Es una ejecución del motor JavaScript en Node, no del pipeline Python ni del renderizado de Plotly en navegador. Los tiempos cambian según estructura, filtros, profundidad, hardware y carga; medir de nuevo con la extracción real antes de fijar objetivos operativos.</p>

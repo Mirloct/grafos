@@ -1,7 +1,0 @@
-__pycache__/
-*.pyc
-.venv/
-node_modules/
-.pnpm-store/
-outputs/test_*/
-.ipynb_checkpoints/

@@ -4,6 +4,7 @@ networkx>=3.1
 scipy>=1.10
 plotly>=5.18
 openpyxl>=3.1
+tqdm>=4.66
 
 # Opcional para mayor escala:
 # igraph>=0.11

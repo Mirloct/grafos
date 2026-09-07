@@ -5,7 +5,7 @@ import re
 from pathlib import Path
 import pandas as pd
 from src.aml_graph import load_data, aggregate_relations, build_graph, detect_communities
-from generar_html import build_payload, generate
+from generar_html import build_payload, generate, parse_nodes
 
 
 class PipelineTests(unittest.TestCase):
@@ -76,6 +76,16 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(p['monthly'][0]['monto'], 10)
         self.assertEqual(p['channels'][0]['monto'], 20)
         self.assertEqual(len(p['relations']), 2)
+
+    def test_chunked_node_filter_keeps_incident_edges(self):
+        path = self.make('origen,destino,suma_monto,ctd_trx\nA,B,10,1\nB,C,20,2\nX,Y,99,3\n')
+        p = build_payload(path, nodes={'B'}, chunksize=1)
+        self.assertEqual(p['summary']['amount'], 30)
+        self.assertEqual({row['persona'] for row in p['persons']}, {'A', 'B', 'C'})
+
+    def test_parse_nodes_from_argument_and_file(self):
+        path = self.make('A\nB; C\n')
+        self.assertEqual(parse_nodes('D,E', str(path)), {'A', 'B', 'C', 'D', 'E'})
 
 
 if __name__ == '__main__':

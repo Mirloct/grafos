@@ -11,7 +11,17 @@ python -m pip install -r requirements.lock.txt
 python generar_html.py --input data/base.csv --output outputs/visor_aml_grafos.html
 ```
 
-La generación escribe el visor y la documentación en el mismo directorio. Plotly queda integrado: no se necesita conexión al abrirlos.
+La generación escribe el visor y la documentación en el mismo directorio. Plotly queda integrado: no se necesita conexión al abrirlos. La consola muestra una barra `tqdm` con porcentaje, velocidad y ETA durante la lectura, otra durante el hash, y checkpoints de salud con duración, filas, nodos y aristas.
+
+## Archivo grande (recomendación para 5 GB)
+
+No genere un HTML con los 5 GB completos: pandas, NetworkX, la serialización JSON y el navegador pueden requerir varias veces ese tamaño. Prepare un TXT con un ID por línea y filtre durante la lectura:
+
+```shell
+python generar_html.py --input D:\datos\movimientos.csv --nodes-file data\personas_interes.txt --chunksize 250000 --skip-hash --output outputs\visor_filtrado.html
+```
+
+El CSV se recorre por bloques y solo se conservan filas donde `origen` o `destino` coincide exactamente con un ID. Esto obtiene la vecindad directa de las semillas sin cargar en RAM las demás filas. El visor sí puede buscar y filtrar todos los nodos que quedaron en ese subgrafo; no puede recuperar después nodos descartados. Para 2–3 saltos sobre 5 GB, extraiga esos vecinos en la base de datos origen o ejecute pasadas sucesivas ampliando la lista. Use CSV, SSD local y empiece con `--chunksize 250000`; pruebe 500000–1000000 únicamente si hay RAM holgada. Quite `--skip-hash` cuando necesite trazabilidad SHA-256: implica una segunda lectura completa del archivo.
 
 ## Contrato
 

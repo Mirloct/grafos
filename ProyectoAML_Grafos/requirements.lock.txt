@@ -6,3 +6,4 @@ networkx==3.6.1
 scipy==1.18.1
 plotly==7.0.0
 openpyxl==3.1.5
+tqdm==4.67.1
