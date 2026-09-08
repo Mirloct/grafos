@@ -3,6 +3,7 @@ import unittest
 import json
 import re
 from pathlib import Path
+from unittest.mock import patch
 import pandas as pd
 from src.aml_graph import load_data, aggregate_relations, build_graph, detect_communities
 from generar_html import build_payload, generate, parse_nodes
@@ -82,6 +83,37 @@ class PipelineTests(unittest.TestCase):
         p = build_payload(path, nodes={'B'}, chunksize=1)
         self.assertEqual(p['summary']['amount'], 30)
         self.assertEqual({row['persona'] for row in p['persons']}, {'A', 'B', 'C'})
+
+    def test_multihop_extraction_is_bounded_and_does_not_duplicate_rows(self):
+        path = self.make('origen,destino,suma_monto,ctd_trx\nA,B,10,1\nB,C,20,2\nC,D,30,3\nD,E,40,4\nX,Y,99,9\n')
+        p = build_payload(path, nodes={'A'}, chunksize=1, extract_depth=2)
+        self.assertEqual({row['persona'] for row in p['persons']}, {'A', 'B', 'C'})
+        self.assertEqual(p['summary']['amount'], 30)
+        self.assertEqual(p['meta']['extract_depth'], 2)
+
+    def test_interpretable_local_metrics(self):
+        path = self.make('origen,destino,suma_monto,ctd_trx\nA,B,10,1\nB,A,5,1\nC,A,5,1\n')
+        p = build_payload(path)
+        a = next(row for row in p['persons'] if row['persona'] == 'A')
+        self.assertEqual(a['contrapartes_unicas'], 2)
+        self.assertAlmostEqual(a['equilibrio_flujo'], 1.0)
+        self.assertAlmostEqual(a['reciprocidad'], .5)
+        self.assertAlmostEqual(a['hhi_entrada'], .5)
+
+    def test_generation_writes_persistent_checkpoints(self):
+        path = self.make('origen,destino,suma_monto,ctd_trx\nA,B,4,1\n')
+        output = generate(path, path.parent / 'report.html')
+        log = output.with_suffix('.log').read_text(encoding='utf-8')
+        self.assertIn('carga y validación completas', log)
+        self.assertIn('archivos escritos', log)
+
+    def test_large_csv_requires_scope_before_loading(self):
+        path = self.make('origen,destino,suma_monto,ctd_trx\nA,B,4,1\n')
+        with patch('src.aml_graph.LARGE_FILE_BYTES', 1), self.assertRaisesRegex(ValueError, 'supera 3 GiB'):
+            load_data(path)
+        with patch('src.aml_graph.LARGE_FILE_BYTES', 1):
+            frame, _ = load_data(path, nodes={'A'})
+        self.assertEqual(len(frame), 1)
 
     def test_parse_nodes_from_argument_and_file(self):
         path = self.make('A\nB; C\n')

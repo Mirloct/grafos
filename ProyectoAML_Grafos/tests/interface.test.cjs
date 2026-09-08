@@ -33,8 +33,18 @@ test('Optional navigation is absent independently; methodology omitted',async()=
     assert.equal(!!a.document.querySelector('[data-page="mensual"]'),!!monthly.length);
     assert.equal(!!a.document.querySelector('[data-page="canales"]'),!!channels.length);
     assert.equal(a.document.querySelector('[data-page="metodologia"]'),null);
+    assert.ok(a.document.querySelector('[data-page="ayuda"]'));
     assert.ok(a.document.getElementById('navigation').textContent.includes('Patrones de interacción'));
   }
+});
+test('Viewer guide explains controls and hides the analytical workspace',async()=>{
+  const a=await app();a.eval("showPage('ayuda')");
+  assert.equal(a.document.getElementById('workspace').hidden,true);
+  assert.equal(a.document.getElementById('helpPanel').hidden,false);
+  assert.ok(a.document.getElementById('helpPanel').textContent.includes('Exportar incluye todas las filas'));
+  assert.ok(a.document.getElementById('helpPanel').textContent.includes('Ninguna coincidencia'));
+  a.document.getElementById('themeToggle').onclick();
+  assert.equal(a.document.documentElement.dataset.theme,'dark');
 });
 test('Multi-ID query, unknown IDs, saved overlapping networks and neutral pattern view',async()=>{
   const a=await app(),q=a.document.getElementById('query');

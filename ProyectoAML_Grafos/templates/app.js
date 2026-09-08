@@ -15,14 +15,15 @@ const pages=[
   ['personas','Personas','Personas del histórico','Selecciona una persona para abrir sus interacciones.'],
   ['relaciones','Relaciones','Relaciones históricas','Detalle por origen, destino y dimensiones disponibles.'],
   ['comunidades','Comunidades','Comunidades estructurales','Partición Louvain del histórico; las redes de investigación se gestionan por separado.'],
-  ['patrones','Patrones de interacción','Patrones de interacción','Explora concentración, dispersión, equilibrio de montos, intermediación y circularidad.']
+  ['patrones','Patrones de interacción','Patrones de interacción','Explora concentración, dispersión, equilibrio de montos, intermediación y circularidad.'],
+  ['ayuda','Guía del visor','Guía rápida del visor','Qué hace cada elemento y cómo usarlo sin alterar el alcance de la investigación.']
 ];
 if(DATA.monthly.length) pages.push(['mensual','Mensual','Actividad mensual','Totales mensuales y relaciones del periodo seleccionado.']);
 if(DATA.channels.length) pages.push(['canales','Canales','Actividad por canal','Totales y relaciones del canal seleccionado.']);
 const edgeColumns=['origen','destino','suma_monto','ctd_trx','monto_promedio'];
 const relationColumns=[...edgeColumns,...(DATA.monthly.length?['codmes']:[]),...(DATA.channels.length?['canal']:[])];
-const personColumns=['persona','comunidad','monto_recibido','monto_enviado','contrapartes_entrada','contrapartes_salida','balance_neto','pagerank','betweenness','score'];
-const names={suma_monto:'Monto total',ctd_trx:'Transacciones',monto_promedio:'Promedio por trx',persona:'Persona',origen:'Origen',destino:'Destino',comunidad:'Comunidad',monto_recibido:'Monto recibido',monto_enviado:'Monto enviado',codmes:'Mes',canal:'Canal',contrapartes_entrada:'Orígenes distintos',contrapartes_salida:'Destinos distintos',balance_neto:'Entradas − salidas',pagerank:'PageRank',betweenness:'Intermediación',score:'Índice histórico',n_redes:'N.º de redes'};
+const personColumns=['persona','comunidad','monto_recibido','monto_enviado','contrapartes_entrada','contrapartes_salida','contrapartes_unicas','balance_neto','equilibrio_flujo','reciprocidad','hhi_entrada','hhi_salida','pagerank','betweenness','score'];
+const names={suma_monto:'Monto total',ctd_trx:'Transacciones',monto_promedio:'Promedio por trx',persona:'Persona',origen:'Origen',destino:'Destino',comunidad:'Comunidad',monto_recibido:'Monto recibido',monto_enviado:'Monto enviado',codmes:'Mes',canal:'Canal',contrapartes_entrada:'Orígenes distintos',contrapartes_salida:'Destinos distintos',contrapartes_unicas:'Contrapartes únicas',balance_neto:'Entradas − salidas',equilibrio_flujo:'Equilibrio de flujo',reciprocidad:'Reciprocidad',hhi_entrada:'HHI de entrada',hhi_salida:'HHI de salida',pagerank:'PageRank',betweenness:'Intermediación',score:'Índice histórico',n_redes:'N.º de redes'};
 function metricName(k){return names[k]||k.replace(/_/g,' ');}
 function theme(){const css=getComputedStyle(document.documentElement),get=n=>css.getPropertyValue('--'+n).trim();
   return {panel:get('panel'),ink:get('ink'),muted:get('muted'),grid:get('grid'),edge:get('edge'),seed:get('seed'),incoming:get('in'),outgoing:get('out'),shared:get('shared'),tooltip:get('tooltip'),tooltipText:get('tooltip-text'),
@@ -62,7 +63,7 @@ function renderTable(){
   $('tableTitle').textContent=t.label;
   $('tableContainer').innerHTML=visible.length?'<table><thead><tr>'+t.columns.map(k=>'<th><button data-sort="'+esc(k)+'">'+esc(metricName(k))+(state.sort===k?(state.ascending?' ↑':' ↓'):'')+'</button></th>').join('')+'</tr></thead><tbody>'+visible.map(r=>'<tr>'+t.columns.map(k=>{
     const value=r[k],isNumber=typeof value==='number',isPerson=['persona','origen','destino'].includes(k)&&people.has(String(value));
-    const text=isNumber?(['score','pagerank','betweenness','densidad'].includes(k)?sf.format(value):nf.format(value)):String(value??'—');
+    const text=isNumber?(['score','pagerank','betweenness','densidad','equilibrio_flujo','reciprocidad','hhi_entrada','hhi_salida'].includes(k)?sf.format(value):nf.format(value)):String(value??'—');
     return '<td class="'+(isNumber?'num':['redes','motivo'].includes(k)?'long':'')+'">'+(isPerson?'<button data-person="'+esc(value)+'">'+esc(text)+'</button>':esc(text))+'</td>';
   }).join('')+'</tr>').join('')+'</tbody></table>':'<div class="empty">No hay filas para esta selección.</div>';
   $('tableCount').textContent=rows.length?(offset+1)+'–'+(offset+visible.length)+' de '+nf.format(rows.length):'0 filas';
@@ -115,6 +116,7 @@ function positions(nodes,edges){
   return map;
 }
 async function draw(){
+  if(state.page==='ayuda')return;
   if(['mensual','canales'].includes(state.page)){drawDimension();return;}
   const t=theme(),view=C.chooseView(state.edges,state.seeds),ids=view.nodes,edges=view.edges;
   if(!ids.length){Plotly.purge('graph');$('graph').innerHTML='<div class="empty">Sin relaciones para esta selección.</div>';$('graphScope').textContent='';return;}
@@ -279,11 +281,24 @@ function dimensionView(){
   drawDimension();
 }
 function openPerson(id){state.query=id;state.depth=1;state.direction='both';state.month='';state.channel='';showPage('investigar');}
+function renderHelp(){
+  $('helpPanel').innerHTML='<div class="help-intro"><strong>Ruta corta</strong><span>Busca personas en Investigar → revisa el grafo y el detalle → guarda redes útiles → compáralas en Mis redes.</span></div><div class="help-grid">'+
+    '<article><h2>Investigar</h2><p><b>Personas de interés:</b> pega IDs o importa un TXT. Vacío muestra todo el histórico cargado.</p><p><b>Alcance:</b> 1–3 saltos desde cada ID. <b>Interacciones:</b> entradas, salidas o ambas.</p><p><b>Mes/canal:</b> aparecen solo si la fuente contiene esa dimensión. Analizar actualiza grafo y tablas.</p></article>'+
+    '<article><h2>Grafo</h2><p><b>Nodo:</b> pasa el cursor para ver datos; haz clic para abrir su vecindad directa.</p><p><b>Flecha:</b> va de origen a destino. Color y grosor ayudan a leer dirección y monto; no prueban ilicitud.</p><p><b>Distribución:</b> cambia la geometría, no los datos. Usa zoom, arrastre y restablecer vista en la barra del gráfico.</p></article>'+
+    '<article><h2>Detalle y exportación</h2><p>Cambia de subtabla con sus pestañas. Escribe en Buscar para filtrar y pulsa un encabezado para ordenar.</p><p>Exportar incluye todas las filas filtradas, no solo la página visible ni la muestra dibujada.</p><p>Un ID azul abre su investigación.</p></article>'+
+    '<article><h2>Mis redes</h2><p>Guarda la consulta actual con un nombre. Pertenencias muestra personas compartidas por varias redes.</p><p>Las redes viven solo en esta sesión: exporta las definiciones JSON antes de cerrar o recargar.</p></article>'+
+    '<article><h2>Resumen, Personas y Relaciones</h2><p><b>Resumen:</b> universo cargado. <b>Personas:</b> métricas históricas y acceso por ID. <b>Relaciones:</b> detalle agregado por par y dimensiones disponibles.</p><p>Las métricas no se recalculan al filtrar en el navegador.</p></article>'+
+    '<article><h2>Comunidades y patrones</h2><p><b>Comunidades:</b> partición estructural Louvain; no equivale a una red criminal.</p><p><b>Patrones:</b> reglas de priorización para revisar contexto. Ninguna coincidencia, métrica o índice es una conclusión AML.</p></article>'+
+    '<article><h2>Mensual y Canales</h2><p>Solo existen cuando hay valores utilizables. El selector restringe gráfico y detalle.</p><p>Filas sin mes/canal siguen en el histórico total, pero no se inventa una categoría para ellas.</p></article>'+
+    '<article><h2>Lectura segura</h2><p>El dibujo puede limitarse a 250 nodos y 600 relaciones; el pie indica el alcance. Las tablas conservan la consulta completa.</p><p>Corrobora señales con KYC, eventos fechados y contexto del cliente antes de escalar un caso.</p></article></div>';
+}
 function showPage(id){
   state.request++;
   state.page=id;state.tableIndex=0;say('');$('controls').innerHTML='';$('stats').innerHTML='';
   $('navigation').querySelectorAll('button').forEach(b=>b.setAttribute('aria-current',b.dataset.page===id?'page':'false'));
   const page=pages.find(p=>p[0]===id);$('pageTitle').textContent=page[2];$('pageDescription').textContent=page[3];
+  const help=id==='ayuda';$('helpPanel').hidden=!help;$('workspace').hidden=help;$('historicalLabel').hidden=help;
+  if(help){renderHelp();return;}
   if(id==='investigar'){queryControls();investigate();}
   if(id==='redes'){
     $('controls').innerHTML='<div class="field"><label for="savedSelect">Agrupaciones guardadas</label><select id="savedSelect"><option value="all">Comparar todas</option>'+state.saved.map(n=>'<option value="'+n.id+'">'+esc(n.id+' · '+n.label)+'</option>').join('')+'</select></div><button id="exportNetworks">Exportar definiciones JSON</button>';

@@ -1,0 +1,11 @@
+2026-09-08T02:53:55.446686+00:00 · inicio de ejecución
+2026-09-08T02:53:55.450143+00:00 · [salud +0.0s] inicio · archivo=base_ejemplo.csv · nodos_filtro=0
+2026-09-08T02:53:55.488374+00:00 · [salud +0.0s] carga y validación completas · filas=9
+2026-09-08T02:53:55.496815+00:00 · [salud +0.0s] agregación completa · relaciones_segmentadas=9
+2026-09-08T02:53:55.503014+00:00 · [salud +0.1s] grafo construido · nodos=9 · aristas=9
+2026-09-08T02:53:55.509556+00:00 · [salud +0.1s] comunidades calculadas · comunidades=3
+2026-09-08T02:53:55.948586+00:00 · [salud +0.5s] métricas calculadas · personas=9
+2026-09-08T02:53:55.957706+00:00 · [salud +0.5s] patrones calculados · coincidencias=12
+2026-09-08T02:53:55.964545+00:00 · [salud +0.5s] integridad calculada
+2026-09-08T02:53:56.009247+00:00 · [salud +0.6s] payload listo
+2026-09-08T02:53:56.382548+00:00 · archivos escritos · visor=C:\Users\Marco\Documents\Proyectos\Grafos\ProyectoAML_Grafos\outputs\visor_aml_grafos_demo.html · documentación=C:\Users\Marco\Documents\Proyectos\Grafos\ProyectoAML_Grafos\outputs\documentacion_proyecto.html

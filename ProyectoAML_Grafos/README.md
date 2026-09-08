@@ -4,24 +4,23 @@ El producto principal es un visor HTML autónomo para investigar el histórico d
 
 ## Generar los dos HTML
 
-Desde esta carpeta, en Python 3.12:
+Desde esta carpeta, con Python 3.12 o posterior:
 
 ```shell
-python -m pip install -r requirements.lock.txt
-python generar_html.py --input data/base.csv --output outputs/visor_aml_grafos.html
+py -3 generar_html.py --input data/base.csv --output outputs/visor_aml_grafos.html
 ```
 
-La generación escribe el visor y la documentación en el mismo directorio. Plotly queda integrado: no se necesita conexión al abrirlos. La consola muestra una barra `tqdm` con porcentaje, velocidad y ETA durante la lectura, otra durante el hash, y checkpoints de salud con duración, filas, nodos y aristas.
+Al inicio se comprueban las dependencias mínimas y, si falta alguna, se instala automáticamente desde `requirements.txt` usando el mismo intérprete. La generación escribe visor, documentación y log en el mismo directorio. Plotly queda integrado: no se necesita conexión al abrirlos. La consola muestra el porcentaje/ETA de ocho etapas, barras por lectura y hash, y checkpoints con duración, filas, nodos y aristas. `--log-file` permite cambiar la ruta del registro.
 
-## Archivo grande (recomendación para 5 GB)
+## Archivo grande (más de 3 GiB)
 
-No genere un HTML con los 5 GB completos: pandas, NetworkX, la serialización JSON y el navegador pueden requerir varias veces ese tamaño. Prepare un TXT con un ID por línea y filtre durante la lectura:
+El generador rechaza un CSV mayor de 3 GiB sin semillas: pandas, NetworkX, JSON y el navegador pueden requerir varias veces el tamaño retenido. Prepare un TXT con un ID por línea y filtre durante la lectura:
 
 ```shell
-python generar_html.py --input D:\datos\movimientos.csv --nodes-file data\personas_interes.txt --chunksize 250000 --skip-hash --output outputs\visor_filtrado.html
+py -3 generar_html.py --input D:\datos\movimientos.csv --nodes-file data\personas_interes.txt --extract-depth 2 --chunksize 250000 --skip-hash --output outputs\visor_filtrado.html
 ```
 
-El CSV se recorre por bloques y solo se conservan filas donde `origen` o `destino` coincide exactamente con un ID. Esto obtiene la vecindad directa de las semillas sin cargar en RAM las demás filas. El visor sí puede buscar y filtrar todos los nodos que quedaron en ese subgrafo; no puede recuperar después nodos descartados. Para 2–3 saltos sobre 5 GB, extraiga esos vecinos en la base de datos origen o ejecute pasadas sucesivas ampliando la lista. Use CSV, SSD local y empiece con `--chunksize 250000`; pruebe 500000–1000000 únicamente si hay RAM holgada. Quite `--skip-hash` cuando necesite trazabilidad SHA-256: implica una segunda lectura completa del archivo.
+El CSV se recorre por bloques. `--extract-depth 1` conserva la vecindad directa; 2 o 3 hacen pasadas de descubrimiento de IDs y una pasada final, sin duplicar filas retenidas. El visor no puede recuperar nodos descartados. Hay un límite preventivo de 2.000.000 de filas retenidas; reduzca semillas/profundidad antes de elevar `--max-retained-rows`. Use CSV, SSD local y empiece con `--chunksize 250000`; pruebe 500000–1000000 únicamente si hay RAM holgada. Quite `--skip-hash` cuando necesite SHA-256: implica otra lectura completa.
 
 ## Contrato
 
@@ -42,6 +41,7 @@ Los IDs se leen como texto. CSV usa coma y punto decimal; XLSX requiere IDs ya a
 - Exportar CSV de cualquier tabla, incluyendo todas las filas filtradas y ordenadas, no solo la página visible.
 - Cambiar tema claro/oscuro para actualizar toda la página y sus gráficos.
 - Explorar Patrones de interacción con lenguaje neutral y subgrafos.
+- Consultar la pestaña Guía del visor para instrucciones breves de cada control, gráfico y tabla.
 
 El gráfico muestra hasta 250 nodos/600 relaciones; las tablas mantienen el resultado completo. Los índices de centralidad y patrones siguen referidos al histórico cargado. La comparación entre redes guardadas conserva pertenencias por filtro, pero muestra el monto histórico de cada relación una sola vez.
 

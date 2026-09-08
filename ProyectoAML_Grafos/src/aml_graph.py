@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-from collections import deque
 from dataclasses import replace
 import re
 
@@ -21,6 +20,9 @@ ALIASES = {
     "codmes": ["codmes", "mes", "periodo", "month", "period"],
     "canal": ["canal", "channel", "medio", "payment_channel"],
 }
+
+LARGE_FILE_BYTES = 3 * 1024**3
+DEFAULT_MAX_RETAINED_ROWS = 2_000_000
 
 
 @dataclass(frozen=True)
@@ -63,27 +65,82 @@ def resolve_schema(df: pd.DataFrame) -> Schema:
 
 
 def load_data(path: str | Path, nodes: set[str] | None = None, chunksize: int = 250_000,
-              show_progress: bool = False) -> tuple[pd.DataFrame, Schema]:
-    """Carga datos y, para CSV, filtra nodos por bloques antes de ocupar memoria."""
+              show_progress: bool = False, extract_depth: int = 1,
+              max_retained_rows: int | None = DEFAULT_MAX_RETAINED_ROWS) -> tuple[pd.DataFrame, Schema]:
+    """Carga datos; en CSV descubre y retiene una vecindad acotada sin cargar el universo."""
     path = Path(path)
     if not path.exists():
         raise FileNotFoundError(path)
+    if chunksize < 1:
+        raise ValueError('chunksize debe ser mayor que cero.')
+    if extract_depth not in (1, 2, 3):
+        raise ValueError('extract_depth debe ser 1, 2 o 3.')
+    if max_retained_rows is not None and max_retained_rows < 1:
+        raise ValueError('max_retained_rows debe ser positivo o None.')
     selected = {str(node).strip() for node in (nodes or set()) if str(node).strip()}
     if path.suffix.lower() == '.csv':
         header = pd.read_csv(path, dtype='string', nrows=0)
         schema = resolve_schema(header)
+        if path.stat().st_size > LARGE_FILE_BYTES and not selected:
+            raise ValueError(
+                'El CSV supera 3 GiB: indique --nodes o --nodes-file para acotar la extracción. '
+                'Un HTML autónomo no es un destino seguro para el histórico completo.'
+            )
+
+        # Para profundidad N se descubren N-1 capas con lecturas que conservan solo IDs.
+        # La pasada final retiene las aristas incidentes al conjunto descubierto, sin duplicarlas.
+        discovered = set(selected)
+        for step in range(1, extract_depth):
+            before = len(discovered)
+            scope = set(discovered)
+            additions: set[str] = set()
+            with path.open('rb') as source, tqdm(
+                total=path.stat().st_size, desc=f'Descubriendo salto {step + 1}/{extract_depth}',
+                unit='B', unit_scale=True, disable=not show_progress,
+            ) as bar:
+                previous = 0
+                for chunk in pd.read_csv(
+                    source, dtype='string', chunksize=chunksize,
+                    usecols=[schema.origen, schema.destino],
+                ):
+                    current = source.tell()
+                    bar.update(max(0, current - previous))
+                    previous = current
+                    origin = chunk[schema.origen].astype('string').str.strip()
+                    destination = chunk[schema.destino].astype('string').str.strip()
+                    mask = origin.isin(scope) | destination.isin(scope)
+                    if mask.any():
+                        additions.update(origin[mask].dropna().tolist())
+                        additions.update(destination[mask].dropna().tolist())
+                bar.update(max(0, path.stat().st_size - bar.n))
+            discovered.update(additions)
+            if len(discovered) == before:
+                break
+
         frames: list[pd.DataFrame] = []
-        with path.open('rb') as source:
-            stream = tqdm.wrapattr(source, 'read', total=path.stat().st_size, desc='Leyendo CSV',
-                                   unit='B', unit_scale=True, disable=not show_progress)
-            with stream as progress_source:
-                for chunk in pd.read_csv(progress_source, dtype='string', chunksize=chunksize):
-                    if selected:
-                        origin = chunk[schema.origen].astype('string').str.strip()
-                        destination = chunk[schema.destino].astype('string').str.strip()
-                        chunk = chunk[origin.isin(selected) | destination.isin(selected)]
-                    if not chunk.empty:
-                        frames.append(chunk)
+        retained = 0
+        with path.open('rb') as source, tqdm(total=path.stat().st_size, desc='Leyendo CSV',
+                                             unit='B', unit_scale=True,
+                                             disable=not show_progress) as bar:
+            previous = 0
+            for chunk in pd.read_csv(source, dtype='string', chunksize=chunksize):
+                current = source.tell()
+                bar.update(max(0, current - previous))
+                previous = current
+                if discovered:
+                    origin = chunk[schema.origen].astype('string').str.strip()
+                    destination = chunk[schema.destino].astype('string').str.strip()
+                    chunk = chunk[origin.isin(discovered) | destination.isin(discovered)]
+                if not chunk.empty:
+                    retained += len(chunk)
+                    if max_retained_rows is not None and retained > max_retained_rows:
+                        raise ValueError(
+                            f'La extracción retuvo más de {max_retained_rows:,} filas. '
+                            'Reduzca semillas/profundidad o aumente --max-retained-rows '
+                            'solo tras validar RAM y tamaño del HTML.'
+                        )
+                    frames.append(chunk)
+            bar.update(max(0, path.stat().st_size - bar.n))
         df = pd.concat(frames, ignore_index=True) if frames else header.copy()
     else:
         if selected:
@@ -170,11 +227,24 @@ def person_metrics(graph: nx.DiGraph, community: dict[str, int]) -> pd.DataFrame
     rows: list[dict[str, Any]] = []
     for node in nodes:
         received, sent = float(amount_in[node]), float(amount_out[node])
+        incoming = {str(other): float(data.get('suma_monto', 0.0)) for other, _, data in graph.in_edges(node, data=True)}
+        outgoing = {str(other): float(data.get('suma_monto', 0.0)) for _, other, data in graph.out_edges(node, data=True)}
+        counterparties = set(incoming) | set(outgoing)
+        mutual = set(incoming) & set(outgoing)
+
+        def concentration(values: dict[str, float], total: float) -> float:
+            return sum((value / total) ** 2 for value in values.values()) if total > 0 else 0.0
+
         rows.append({"persona": str(node), "comunidad": int(community.get(str(node), -1)),
                      "monto_recibido": received, "monto_enviado": sent, "balance_neto": received - sent,
                      "trx_recibidas": float(tx_in[node]), "trx_enviadas": float(tx_out[node]),
                      "contrapartes_entrada": int(graph.in_degree(node)), "contrapartes_salida": int(graph.out_degree(node)),
+                     "contrapartes_unicas": len(counterparties),
                      "ratio_salida_entrada": sent / received if received else 0.0,
+                     "equilibrio_flujo": min(received, sent) / max(received, sent) if max(received, sent) else 0.0,
+                     "reciprocidad": len(mutual) / len(counterparties) if counterparties else 0.0,
+                     "hhi_entrada": concentration(incoming, received),
+                     "hhi_salida": concentration(outgoing, sent),
                      "pagerank": float(pagerank.get(node, 0.0)), "betweenness": float(between.get(node, 0.0))})
     return pd.DataFrame(rows)
 
@@ -228,53 +298,3 @@ def community_metrics(graph: nx.DiGraph, groups: list[set[str]]) -> pd.DataFrame
                      "monto_interno": sum(d.get("suma_monto", 0.0) for _, _, d in sub.edges(data=True)),
                      "densidad": nx.density(sub)})
     return pd.DataFrame(rows)
-
-
-def _normalise_positions(pos: dict[Any, Any]) -> dict[str, list[float]]:
-    if not pos:
-        return {}
-    arr = np.asarray(list(pos.values()), dtype=float)
-    centre, scale = arr.mean(axis=0), max(np.abs(arr - arr.mean(axis=0)).max(), 1e-9)
-    return {str(node): [round(float((xy[0] - centre[0]) / scale), 5), round(float((xy[1] - centre[1]) / scale), 5)] for node, xy in pos.items()}
-
-
-def graph_layouts(graph: nx.DiGraph, community: dict[str, int]) -> dict[str, dict[str, list[float]]]:
-    """Cinco vistas reproducibles para comparar la legibilidad del grafo."""
-    names = ["Fuerza", "Comunidades", "Flujo", "Radial", "Circular"]
-    if graph.number_of_nodes() == 0:
-        return {name: {} for name in names}
-    if graph.number_of_nodes() > 500:
-        # Posiciones baratas para todo el universo. El navegador calcula fuerza solo para la vista acotada.
-        pos = _normalise_positions(nx.circular_layout(graph))
-        return {name: pos for name in names}
-    und = graph.to_undirected()
-    force = nx.spring_layout(und, seed=11, weight="suma_monto", iterations=120)
-    ids = sorted(set(community.values()))
-    centres = nx.circular_layout(ids, scale=.75) if ids else {}
-    community_pos = {}
-    for cid in ids:
-        members = [n for n in graph if community.get(str(n)) == cid]
-        local = nx.spring_layout(und.subgraph(members), seed=cid + 17, scale=.23)
-        for node, xy in local.items():
-            community_pos[str(node)] = np.asarray(xy) + np.asarray(centres[cid])
-    sources = [n for n in graph if graph.in_degree(n) == 0] or [min(graph, key=lambda n: graph.in_degree(n) - graph.out_degree(n))]
-    depth, queue = {str(n): 0 for n in sources}, deque(sources)
-    while queue:
-        node = queue.popleft()
-        for nxt in graph.successors(node):
-            proposed = min(depth[str(node)] + 1, 8)
-            if str(nxt) not in depth or proposed < depth[str(nxt)]:
-                depth[str(nxt)] = proposed
-                queue.append(nxt)
-    for node in graph:
-        depth.setdefault(str(node), 4)
-    layers: dict[int, list[str]] = {}
-    for node, level in depth.items():
-        layers.setdefault(level, []).append(node)
-    flow = {node: np.array([level, i - (len(members) - 1) / 2]) for level, members in layers.items() for i, node in enumerate(sorted(members))}
-    degree_sorted = sorted(graph, key=lambda n: graph.degree(n), reverse=True)
-    cut1, cut2 = max(1, len(degree_sorted) // 8), max(2, len(degree_sorted) // 3)
-    shells = [part for part in [degree_sorted[:cut1], degree_sorted[cut1:cut2], degree_sorted[cut2:]] if part]
-    return {"Fuerza": _normalise_positions(force), "Comunidades": _normalise_positions(community_pos),
-            "Flujo": _normalise_positions(flow), "Radial": _normalise_positions(nx.shell_layout(und, shells)),
-            "Circular": _normalise_positions(nx.circular_layout(und))}
